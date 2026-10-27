@@ -1,0 +1,66 @@
+# Global values are automatically inherited from parent chart
+# No need to duplicate them here
+netop:
+  networkInterface: eth0
+  image: netops
+  tag: 0.2.2 
+  pullPolicy: IfNotPresent
+  labels:
+    app: app_net_op
+    kubeslice.io/pod-type: netop
+  annotations:
+    prometheus.io/port: "18080"
+    prometheus.io/scrape: "true"
+  podSecurityContext: {}
+    # runAsUser: 65536               # Non-root user
+    # runAsGroup: 65536              # Non-root group
+    # runAsNonRoot: true             # Ensure the container does not run as root
+    # seccompProfile:
+    #   type: RuntimeDefault
+  containerSecurityContext: {}
+    # runAsUser: 65536
+    # runAsGroup: 65536
+    # runAsNonRoot: true
+    # seccompProfile:
+    #   type: RuntimeDefault
+    # allowPrivilegeEscalation: false
+    # capabilities:
+    #   drop:
+    #     - ALL
+    # readOnlyRootFilesystem: true
+  tolerations:
+    - key: "kubernetes.io/arch"
+      operator: "Equal"
+      value: "amd64"
+      effect: "NoSchedule"
+    - key: "kubernetes.io/arch"
+      operator: "Equal"
+      value: "arm64"
+      effect: "NoSchedule"
+    - key: "kubeslice.io/egs"
+      operator: "Equal"
+      value: "dedicated-node"
+      effect: "NoSchedule"
+    - key: "node.kubernetes.io/not-ready"
+      operator: "Exists"
+      effect: "NoExecute"
+      tolerationSeconds: 300
+    - key: "node.kubernetes.io/unreachable"
+      operator: "Exists"
+      effect: "NoExecute"
+      tolerationSeconds: 300
+    - key: "node.kubernetes.io/memory-pressure"
+      operator: "Exists"
+      effect: "NoSchedule"
+    - key: "node-role.kubernetes.io/control-plane"
+      operator: "Exists"
+      effect: "NoSchedule"
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: kubeslice.io/node-type
+            operator: In
+            values:
+            - gateway

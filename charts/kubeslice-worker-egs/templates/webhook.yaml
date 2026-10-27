@@ -1,0 +1,219 @@
+{{- $secretName := "kubeslice-admission-webhook-certs" }}
+{{- $existingSecret := lookup "v1" "Secret" .Release.Namespace $secretName }}
+{{- $caCertEnc := "" -}}
+{{- $tlsCertEnc := "" -}}
+{{- $tlsKeyEnc := "" -}}
+{{- if not $existingSecret }}
+# generate a new ca & certificate
+{{- $ca := genCA "admission-controller-ca" 3650 -}}
+{{- $caCertEnc = $ca.Cert | b64enc -}}
+{{- $cn := printf "kubeslice-webhook-service" -}}
+{{- $altName1 := printf "%s.%s.svc" $cn .Release.Namespace }}
+{{- $altName2 := printf "%s.%s.svc.cluster.local" $cn .Release.Namespace }}
+{{- $cert := genSignedCert $cn nil (list $altName1 $altName2) 3650 $ca -}}
+{{- $tlsCertEnc = $cert.Cert | b64enc -}}
+{{- $tlsKeyEnc = $cert.Key | b64enc -}}
+{{- else }}
+# Reuse existing certificates from the secret
+{{- $caCertEnc = index $existingSecret.data "ca.crt" -}}
+{{- $tlsCertEnc = index $existingSecret.data "tls.crt" -}}
+{{- $tlsKeyEnc = index $existingSecret.data "tls.key" -}}
+{{- end }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kubeslice-admission-webhook-certs
+  namespace: {{ .Release.Namespace }}
+type: Opaque
+data:
+  ca.crt: {{ $caCertEnc }}
+  tls.crt: {{ $tlsCertEnc }}
+  tls.key: {{ $tlsKeyEnc }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubeslice-webhook-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - port: 443
+    targetPort: 9443
+  selector:
+    control-plane: controller-manager
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubeslice-metrics-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+    - name: metrics
+      protocol: TCP
+      port: 8080
+      targetPort: 8080
+  selector:
+    control-plane: controller-manager
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  creationTimestamp: null
+  name: kubeslice-mutating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    caBundle: {{ $caCertEnc }}
+    service:
+      name: kubeslice-webhook-service
+      namespace: {{ .Release.Namespace }}
+      path: /mutate-webhook
+  failurePolicy: Ignore
+  name: webhook.kubeslice.io
+  rules:
+  - apiGroups:
+    - ""
+    - apps
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - pods
+    - deployments
+    - statefulsets
+    - daemonsets
+  sideEffects: NoneOnDryRun
+  namespaceSelector:
+    matchExpressions:
+    - key: kubeslice.io/slice
+      operator: Exists
+    - key: name
+      operator: NotIn
+      values:
+        - kube-system
+        - spire
+        - {{ .Release.Namespace | quote}}
+        - {{ .Values.controllerNamespace | quote }}
+    - key: kubernetes.io/metadata.name
+      operator: NotIn
+      values:
+        - kube-system
+        - spire
+        - {{ .Release.Namespace | quote }}
+        - {{ .Values.controllerNamespace | quote }}
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    caBundle: {{ $caCertEnc }}
+    service:
+      name: kubeslice-webhook-service
+      namespace: {{ .Release.Namespace }}
+      path: /mutate-networking-kubeslice-io-v1alpha1-slicensgateway
+  failurePolicy: Fail
+  name: mslicensgateway.kb.io
+  rules:
+  - apiGroups:
+    - networking.kubeslice.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - slicensgateways
+  sideEffects: None
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  creationTimestamp: null
+  name: kubeslice-validating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+    - v1
+  clientConfig:
+    caBundle: {{ $caCertEnc }}
+    service:
+      name: kubeslice-webhook-service
+      namespace: {{ .Release.Namespace }}
+      path: /validating-webhook
+  failurePolicy: Ignore
+  name: vwebhook.kubeslice.io
+  rules:
+    - apiGroups:
+        - ""
+        - networking.kubeslice.io
+      apiVersions:
+        - v1
+        - v1beta1
+      operations:
+        - CREATE
+        - UPDATE
+      resources:
+        - pods
+        - serviceexports
+  sideEffects: NoneOnDryRun
+  namespaceSelector:
+    matchExpressions:
+    - key: kubeslice.io/slice
+      operator: Exists
+    - key: name
+      operator: NotIn
+      values:
+        - kube-system
+        - spire
+        - kubeslice-system
+        - kubeslice-controller
+    - key: kubernetes.io/metadata.name
+      operator: NotIn
+      values:
+        - kube-system
+        - spire
+        - kubeslice-system
+        - kubeslice-controller
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    caBundle: {{ $caCertEnc }}
+    service:
+      name: kubeslice-webhook-service
+      namespace: {{ .Release.Namespace }}
+      path: /validate-networking-kubeslice-io-v1alpha1-vpcserviceimport
+  failurePolicy: Ignore
+  name: vvpcserviceimport.kb.io
+  rules:
+  - apiGroups:
+    - networking.kubeslice.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - vpcserviceimports
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    caBundle: {{ $caCertEnc }}
+    service:
+      name: kubeslice-webhook-service
+      namespace: {{ .Release.Namespace }}
+      path: /validate-networking-kubeslice-io-v1alpha1-slicensgateway
+  failurePolicy: Ignore
+  name: vslicensgateway.kb.io
+  rules:
+  - apiGroups:
+    - networking.kubeslice.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - slicensgateways
+  sideEffects: None

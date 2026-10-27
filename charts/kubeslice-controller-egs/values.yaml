@@ -1,0 +1,421 @@
+# Default values for k-native.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+dev:
+  imageRegistry: harbor.saas1.smart-scaler.io/avesha/aveshadev
+
+
+global:
+  # Global image registry configuration
+  imageRegistry: harbor.saas1.smart-scaler.io/avesha/aveshasystems
+  
+  # Global image pull secrets configuration
+  imagePullSecrets:
+    # Name of the image pull secret to create/use
+    name: "kubeslice-image-pull-secret"
+    # Create the secret from provided credentials (set to false if using external secret)
+    create: true
+    # Registry credentials (only used if create: true)
+    registry: https://index.docker.io/v1/
+    username: ""
+    password: ""
+    email: ""
+    # Pre-encoded dockerconfigjson (alternative to username/password, used if create: false)
+    dockerconfigjson: ""
+  
+  # user can configure labels or annotations that EGS Controller namespaces should have
+  namespaceConfig:
+    labels: {}
+    annotations: {}
+  # Profile settings (e.g., for OpenShift)
+  profile:
+# if you're installing in openshift cluster make this variable true
+    openshift: false
+  kubeTally:
+    # Enable or disable KubeTally
+    enabled: false
+    postgresSecretName: kubetally-db-credentials   # Default value, secret name can be overridden
+    existingSecret: false                # Set to true if secret is pre-created externally
+    # Ensure to configure the mandatory PostgreSQL database settings when 'kubetally enable' is true.
+    postgresAddr:                         # Optional, can be specified here or retrieved from the secret
+    postgresPort:                          # Optional, can be specified here or retrieved from the secret
+    postgresUser:                        # Optional, can be specified here or retrieved from the secret
+    postgresPassword:                     # Optional, can be specified here or retrieved from the secret
+    postgresDB:                          # Optional, can be specified here or retrieved from the secret
+    postgresSslmode: require            # optional, default: require other values: disable
+
+    # Service type for price Service Type
+    priceServiceType: ClusterIP
+
+    # Number of workers for the price updater
+    priceUpdaterWorkers: 5
+
+    # Prometheus URL for monitoring(should be specified if needed)
+    prometheusUrl: http://egs-monitoring-prometheus-server.egs-monitoring.svc.cluster.local
+
+    # Data processing time window (hours ago)
+    dataProcessingHoursAgo: 720
+
+    # Schedule for the pricing updater (cron expression)
+    pricingUpdaterSchedule: 0 0 1 * *
+    
+    # updates price for listed cloud providers
+    pricingUpdaterCloudProviders: "aws,linode"
+
+kubeslice:
+  # Configuration for the RBAC proxy
+  rbacproxy:
+    # Image name for the RBAC proxy
+    image: kubebuilder-kube-rbac-proxy
+    # Image tag for the RBAC proxy
+    tag: 0.18.2
+    containerSecurityContext:
+      runAsUser: 65536
+      runAsGroup: 65536
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+      readOnlyRootFilesystem: true
+
+  # Configuration for the OpenVPN job
+  ovpnJob:
+    # Image name for the gateway certificates generator
+    image: gateway-certs-generator
+    # Image tag for the gateway certificates generator
+    tag: 0.8.0
+
+  # Configuration for the KubeSlice controller
+  controller:
+    # Log level for the controller
+    logLevel: info
+    # Enable admission webhooks. Set to false to disable (e.g. for local/dev runs without cert-manager).
+    enableWebhooks: true
+    # Inventory manager service address
+    invmgrGrpcAddress: egs-inventory-manager:80
+    # Prefix for RBAC resources created by KubeSlice
+    rbacResourcePrefix: kubeslice-rbac
+    # Prefix for project namespaces created by KubeSlice
+    projectnsPrefix: kubeslice
+    # Endpoint for the controller (should be specified if needed)
+    endpoint: ""
+    # Image name for the KubeSlice controller
+    image: kubeslice-controller-ent-egs
+    # Image tag for the KubeSlice controller
+    tag: 1.18.0
+    # Image pull policy for the KubeSlice controller
+    pullPolicy: IfNotPresent
+    # Configuration for kubeTally, which handles chargeback and metrics
+    kubeTally:
+      # Interval for cleaning up metrics when a worker cluster stops communicating
+      metricsCleanupInterval: 15m
+    # Configuration for replication using MinIO
+    replication:
+      # Image name for MinIO
+      image: minio
+      # Image tag for MinIO
+      tag: RELEASE.2025-09-07T16-13-09Z-cpuv1
+      # Configuration for MinIO
+      minio:
+        # Whether to install MinIO
+        install: "true"
+        # Storage size for MinIO
+        storage: 1Gi
+        # Username for MinIO
+        username: minioadmin
+        # Password for MinIO
+        password: minioadmin
+        # service options
+        service:
+          # minio service type
+          type: "LoadBalancer"
+          # minio service annotations
+          annotations: {}
+        labels:
+          app: minio
+    labels:
+      control-plane: controller-manager
+    annotations:
+        kubectl.kubernetes.io/default-container: manager
+        prometheus.io/port: "18080"
+        prometheus.io/scrape: "true"
+    containerSecurityContext:
+      runAsUser: 65536
+      runAsGroup: 65536
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+      readOnlyRootFilesystem: true
+    podSecurityContext: 
+      runAsUser: 65536               # Non-root user
+      runAsGroup: 65536              # Non-root group
+      runAsNonRoot: true             # Ensure the container does not run as root
+      seccompProfile:
+        type: RuntimeDefault
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 250m
+        memory: 256Mi
+    tolerations:
+      - operator: "Exists"
+      - key: "kubeslice.io/egs"
+        operator: "Equal"
+        value: "dedicated-node"
+        effect: "NoSchedule"
+    affinity:
+      nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: "node.kubernetes.io/gpu"
+                    operator: "DoesNotExist"
+
+
+  # Configuration for events
+  events:
+    # Whether events are disabled
+    disabled: true
+
+egs:
+  gprManager:
+    # Image name for the gpr-manager
+    image: gpr-manager
+    # Image tag for the gpr-manager
+    tag: 1.17.0-RELEASE-bbc129d4
+    imagePullPolicy: IfNotPresent
+    # Period for checking if there is queue processing needed (in seconds)
+    qmgrCheckPeriod: 60
+    # Number of times a GPR can be delayed if there is not enough inventory
+    maxDelayedCount: 10
+    # Period for refreshing the GPRs
+    refreshWaitTimeInterval: 300
+    # enabling dynamic node provisioning for GPR Manager
+    enableDynamicNode: false
+    linodeToken: "" # Linode token for the gpr-manager to manage Linode instances
+    maxNodePoolCount: 10 # Maximum number of node pools that can be created for dynamic node provisioning
+    enableTimeSlicing: true # Allow low-priority GPRs with the same GPU shape to share GPUs via time-slicing
+    timeSliceDuration: 600 # Time-slice duration in seconds
+    timeSliceCheckPeriod: 60 # Time-slicing check interval in seconds
+    nodeIdleTimeoutMinutes: 15 # Minutes an unused dynamically-provisioned node waits before scale-down
+    defaultMaxMemoryPerGpr: 256 # Default max memory per GPU (in GB) for a new workspace policy; if unset, computed from cluster inventory
+    labels:
+      control-plane: gpr-controller-manager
+    annotations:
+      kubectl.kubernetes.io/default-container: manager
+    containerSecurityContext: 
+      runAsUser: 65536
+      runAsGroup: 65536
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+      readOnlyRootFilesystem: true
+    podSecurityContext: 
+      runAsUser: 65536               # Non-root user
+      runAsGroup: 65536              # Non-root group
+      runAsNonRoot: true             # Ensure the container does not run as root
+      seccompProfile:
+        type: RuntimeDefault
+    resources:
+      limits:
+        cpu: 500m
+        memory: 128Mi
+      requests:
+        cpu: 10m
+        memory: 64Mi
+    tolerations:
+      - operator: "Exists"
+      - key: "kubeslice.io/egs"
+        operator: "Equal"
+        value: "dedicated-node"
+        effect: "NoSchedule"
+    affinity:
+      nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: "node.kubernetes.io/gpu"
+                    operator: "DoesNotExist"
+
+  queueManager:
+    # Image name for the queue-manager
+    image: queue-manager
+    # Image tag for the queue-manager
+    tag: 1.14.0
+    imagePullPolicy: IfNotPresent
+    service:
+      name: egs-queue-manager
+      port: 80
+    # turn off reflection
+    appEnv: "production"
+    queuingPolicy: "FIFO"
+    labels:
+      app: "queue-manager"
+    annotations: {}
+    containerSecurityContext: 
+      runAsUser: 65536
+      runAsGroup: 65536
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+      readOnlyRootFilesystem: true
+    podSecurityContext:
+      runAsUser: 65536               # Non-root user
+      runAsGroup: 65536              # Non-root group
+      runAsNonRoot: true             # Ensure the container does not run as root
+      seccompProfile:
+        type: RuntimeDefault
+    resources: {}
+    tolerations:
+      - operator: "Exists"
+      - key: "kubeslice.io/egs"
+        operator: "Equal"
+        value: "dedicated-node"
+        effect: "NoSchedule"
+    affinity:
+      nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: "node.kubernetes.io/gpu"
+                    operator: "DoesNotExist"
+
+  inventory:
+    # Image name for inventory-manager
+    image: inventory-manager
+    # Image tag for inventory-manager
+    tag: 1.15.0
+    imagePullPolicy: IfNotPresent
+    logLevel: INFO
+    service:
+      name: egs-inventory-manager
+      port: 80
+    labels:
+      control-plane: inventory-controller-manager
+    annotations:
+      kubectl.kubernetes.io/default-container: manager
+    containerSecurityContext:
+      runAsUser: 65536
+      runAsGroup: 65536
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+      readOnlyRootFilesystem: true
+    podSecurityContext: 
+      runAsUser: 65536               # Non-root user
+      runAsGroup: 65536              # Non-root group
+      runAsNonRoot: true             # Ensure the container does not run as root
+      seccompProfile:
+        type: RuntimeDefault
+    linodeToken: "" # Linode token for the inventory-manager to list Linode instances
+    defaultDynamicTotalGpuNodes: ""
+    # Comma-separated CSP instance-type IDs (e.g. "g2-gpu-rtx4000a1-l,g2-gpu-rtx4000a2-m") that
+    # dynamic-node provisioning is restricted to, applied uniformly to every CSP-enabled cluster
+    # this inventory-manager reconciles. Left empty, every CSP-returned instance type is allowed.
+    dynamicNodePreferredInstances: ""
+    gpuCleanupTimeoutSeconds: 120
+    # Shared secret required on the MarkGPUCleaned RPC. Must match egsGpuAgent.inventoryManagerToken
+    # in the kubeslice-worker-egs chart. Left empty by default: the RPC runs unauthenticated
+    # (with a startup warning) until this is set on both sides.
+    token: ""
+    resources:
+      limits:
+        cpu: 500m
+        memory: 128Mi
+      requests:
+        cpu: 10m
+        memory: 64Mi
+    tolerations:
+      - operator: "Exists"
+      - key: "kubeslice.io/egs"
+        operator: "Equal"
+        value: "dedicated-node"
+        effect: "NoSchedule"
+    affinity:
+      nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: "node.kubernetes.io/gpu"
+                    operator: "DoesNotExist"
+
+  inferenceAuthServer:
+    # Validates inference-tile ingress auth requests (nginx auth-url) for kube-aiops-operator.
+    # Runs on the controller cluster; shares the KubeTally postgres instance credentials
+    # and database (global.kubeTally.postgresSecretName).
+    enabled: true
+    image: egs-inference-auth-server
+    tag: 1.0.2-RELEASE-33f877b0
+    imagePullPolicy: IfNotPresent
+    service:
+      type: ClusterIP
+    labels:
+      app: egs-inference-auth-server
+      version: v1
+    annotations: {}
+    resources:
+      limits:
+        cpu: 200m
+        memory: 128Mi
+      requests:
+        cpu: 100m
+        memory: 64Mi
+    containerSecurityContext:
+      runAsUser: 65536
+      runAsGroup: 65536
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+      readOnlyRootFilesystem: false
+    podSecurityContext:
+      runAsUser: 65536
+      runAsGroup: 65536
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+    tolerations:
+      - operator: "Exists"
+      - key: "kubeslice.io/egs"
+        operator: "Equal"
+        value: "dedicated-node"
+        effect: "NoSchedule"
+
+# ServiceMonitor configuration for Prometheus monitoring
+serviceMonitor:
+  # Enable or disable ServiceMonitor deployment
+  enabled: false
+  # Namespace where ServiceMonitor will be deployed
+  namespace: egs-monitoring
+
+# Legacy configuration has been moved to global.imagePullSecrets above
+# All templates now use the global configuration for consistency

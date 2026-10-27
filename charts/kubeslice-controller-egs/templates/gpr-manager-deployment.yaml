@@ -1,0 +1,302 @@
+{{- $secretName := "gpr-admission-webhook-certs" }}
+{{- $existingSecret := lookup "v1" "Secret" .Release.Namespace $secretName }}
+{{- $caCertEnc := "" -}}
+{{- $tlsCertEnc := "" -}}
+{{- $tlsKeyEnc := "" -}}
+{{- if not $existingSecret }}
+# generate a new ca & certificate
+{{- $ca := genCA "gpr-admission-controller-ca" 3650 -}}
+{{- $caCertEnc = $ca.Cert | b64enc -}}
+{{- $cn := printf "gpr-webhook-service" -}}
+{{- $altName1 := printf "%s.%s.svc" $cn .Release.Namespace }}
+{{- $altName2 := printf "%s.%s.svc.cluster.local" $cn .Release.Namespace }}
+{{- $cert := genSignedCert $cn nil (list $altName1 $altName2) 3650 $ca -}}
+{{- $tlsCertEnc = $cert.Cert | b64enc -}}
+{{- $tlsKeyEnc = $cert.Key | b64enc -}}
+{{- else }}
+# Reuse existing certificates from the secret
+{{- $caCertEnc = index $existingSecret.data "ca.crt" -}}
+{{- $tlsCertEnc = index $existingSecret.data "tls.crt" -}}
+{{- $tlsKeyEnc = index $existingSecret.data "tls.key" -}}
+{{- end }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: gpr-admission-webhook-certs
+  namespace: {{ .Release.Namespace }}
+type: Opaque
+data:
+  ca.crt: {{ $caCertEnc }}
+  tls.crt: {{ $tlsCertEnc }}
+  tls.key: {{ $tlsKeyEnc }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gpr-webhook-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - port: 443
+    targetPort: 9443
+  selector:
+  {{- if .Values.egs.gprManager.labels }}
+  {{ toYaml .Values.egs.gprManager.labels | nindent 4 }}
+  {{- end }}
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  creationTimestamp: null
+  name: gpr-validating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+    - v1
+  clientConfig:
+    caBundle: {{ $caCertEnc }}
+    service:
+      name: gpr-webhook-service
+      namespace: {{ .Release.Namespace }}
+      path: /validate-gpr-kubeslice-io-v1alpha1-gpuprovisioningrequest
+  failurePolicy: Fail
+  name: vgwebhook.kubeslice.io
+  rules:
+    - apiGroups:
+        - gpr.kubeslice.io
+      apiVersions:
+        - v1alpha1
+      operations:
+        - CREATE
+        - UPDATE
+      resources:
+        - gpuprovisioningrequests
+  sideEffects: NoneOnDryRun
+- admissionReviewVersions:
+    - v1
+  clientConfig:
+    caBundle: {{ $caCertEnc }}
+    service:
+      name: gpr-webhook-service
+      namespace: {{ .Release.Namespace }}
+      path: /validate-gpr-kubeslice-io-v1alpha1-workloadplacement
+  failurePolicy: Fail
+  name: vworkloadplacement.kubeslice.io
+  rules:
+    - apiGroups:
+        - gpr.kubeslice.io
+      apiVersions:
+        - v1alpha1
+      operations:
+        - CREATE
+        - UPDATE
+      resources:
+        - workloadplacements
+  sideEffects: NoneOnDryRun
+- admissionReviewVersions:
+    - v1
+  clientConfig:
+    caBundle: {{ $caCertEnc }}
+    service:
+      name: gpr-webhook-service
+      namespace: {{ .Release.Namespace }}
+      path: /validate-gpr-kubeslice-io-v1alpha1-gprtemplatebinding
+  failurePolicy: Fail
+  name: vgprtemplatebinding.kubeslice.io
+  rules:
+    - apiGroups:
+        - gpr.kubeslice.io
+      apiVersions:
+        - v1alpha1
+      operations:
+        - CREATE
+        - UPDATE
+        - DELETE
+      resources:
+        - gprtemplatebindings
+  sideEffects: NoneOnDryRun
+- admissionReviewVersions:
+    - v1
+  clientConfig:
+    caBundle: {{ $caCertEnc }}
+    service:
+      name: gpr-webhook-service
+      namespace: {{ .Release.Namespace }}
+      path: /validate-gpr-kubeslice-io-v1alpha1-gprtemplate
+  failurePolicy: Fail
+  name: vgprtemplate.kubeslice.io
+  rules:
+    - apiGroups:
+        - gpr.kubeslice.io
+      apiVersions:
+        - v1alpha1
+      operations:
+        - CREATE
+        - UPDATE
+        - DELETE
+      resources:
+        - gprtemplates
+  sideEffects: NoneOnDryRun
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  {{- if .Values.egs.gprManager.labels }}
+  labels:
+  {{ toYaml .Values.egs.gprManager.labels | nindent 4 }}
+  {{- end }}
+  {{- if .Values.egs.gprManager.annotations }}
+  annotations:
+    checksum/secret: {{ now | quote | sha256sum }}
+  {{ toYaml .Values.egs.gprManager.annotations | nindent 4 }}
+  {{- end }}
+  name: egs-gpr-manager
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+    {{- if .Values.egs.gprManager.labels }}
+    {{ toYaml .Values.egs.gprManager.labels | nindent 6 }}
+    {{- end }}
+  template:
+    metadata:
+      annotations:
+        checksum/secret: {{ now | quote | sha256sum }}
+        {{- if .Values.egs.gprManager.annotations }}
+        {{ toYaml .Values.egs.gprManager.annotations | nindent 8 }}
+        {{- end }}
+      {{- if .Values.egs.gprManager.labels }}
+      labels:
+      {{ toYaml .Values.egs.gprManager.labels | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- if .Values.egs.gprManager.tolerations }}
+      tolerations: {{ toYaml .Values.egs.gprManager.tolerations | nindent 8 }}
+      {{- end }}
+      {{- if .Values.egs.gprManager.affinity }}
+      affinity:
+      {{ toYaml .Values.egs.gprManager.affinity | nindent 8 }}
+      {{- end }}
+      containers:
+      - args:
+        - --metrics-bind-address=:8443
+        - --leader-elect
+        - --health-probe-bind-address=:8081
+        command:
+        - /manager
+        env:
+        - name: ENABLE_WEBHOOKS
+          valueFrom:
+            configMapKeyRef:
+              name: egs-controller-config
+              key: ENABLE_WEBHOOKS
+        - name: QMGR_GRPC_ADDRESS
+          valueFrom:
+            configMapKeyRef:
+              name: egs-controller-config
+              key: QMGR_GRPC_ADDRESS
+        - name: INVMGR_GRPC_ADDRESS
+          valueFrom:
+            configMapKeyRef:
+              name: egs-controller-config
+              key: INVMGR_GRPC_ADDRESS
+        - name: QMGR_CHECK_PERIOD
+          valueFrom:
+            configMapKeyRef:
+              name: egs-controller-config
+              key: QMGR_CHECK_PERIOD
+        - name: MAX_DELAYED_COUNT
+          valueFrom:
+            configMapKeyRef:
+              name: egs-controller-config
+              key: MAX_DELAYED_COUNT
+        - name: WAIT_TIME_REFRESH_PERIOD
+          valueFrom:
+            configMapKeyRef:
+              name: egs-controller-config
+              key: WAIT_TIME_REFRESH_PERIOD
+        - name: WEBHOOK_CA_BUNDLE
+          value: {{ $caCertEnc }}
+        - name: LINODE_TOKEN
+          valueFrom:
+            configMapKeyRef:
+              name: egs-controller-config
+              key: LINODE_TOKEN
+        - name: ENABLE_DYNAMIC_NODE
+          valueFrom:
+            configMapKeyRef:
+              name: egs-controller-config
+              key: ENABLE_DYNAMIC_NODE
+        - name: MAX_NODE_POOL_COUNT
+          valueFrom:
+            configMapKeyRef:
+              name: egs-controller-config
+              key: MAX_NODE_POOL_COUNT
+        - name: DEFAULT_DYNAMIC_TOTAL_GPU_NODES
+          valueFrom:
+            configMapKeyRef:
+              name: egs-controller-config
+              key: DEFAULT_DYNAMIC_TOTAL_GPU_NODES
+        - name: ENABLE_TIME_SLICING
+          valueFrom:
+            configMapKeyRef:
+              name: egs-controller-config
+              key: ENABLE_TIME_SLICING
+        - name: TIME_SLICE_DURATION
+          valueFrom:
+            configMapKeyRef:
+              name: egs-controller-config
+              key: TIME_SLICE_DURATION
+        - name: TIME_SLICE_CHECK_PERIOD
+          valueFrom:
+            configMapKeyRef:
+              name: egs-controller-config
+              key: TIME_SLICE_CHECK_PERIOD
+        - name: NODE_IDLE_TIMEOUT_MINUTES
+          valueFrom:
+            configMapKeyRef:
+              name: egs-controller-config
+              key: NODE_IDLE_TIMEOUT_MINUTES
+        - name: DEFAULT_MAX_MEMORY_PER_GPR
+          valueFrom:
+            configMapKeyRef:
+              name: egs-controller-config
+              key: DEFAULT_MAX_MEMORY_PER_GPR
+        image: {{ include "kubeslice.image" (dict "image" .Values.egs.gprManager.image "tag" .Values.egs.gprManager.tag "registry" .Values.dev.imageRegistry) }}
+        imagePullPolicy: "{{ .Values.egs.gprManager.imagePullPolicy }}"
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        name: manager
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        {{- if .Values.egs.gprManager.resources }}
+        resources: {{ toYaml .Values.egs.gprManager.resources | nindent 10 }}
+        {{- end }}
+        securityContext:
+        {{- if .Values.egs.gprManager.containerSecurityContext }} 
+        {{ toYaml .Values.egs.gprManager.containerSecurityContext | nindent 10 }}
+        {{- end }}
+        volumeMounts:
+          - mountPath: /tmp/k8s-webhook-server/serving-certs
+            name: webhook-certs
+            readOnly: true
+      securityContext:
+      {{- if .Values.egs.gprManager.podSecurityContext }}
+      {{ toYaml .Values.egs.gprManager.podSecurityContext | nindent 8 }}
+      {{- end }}
+      serviceAccountName: gpr-manager-access
+      terminationGracePeriodSeconds: 10
+      volumes:
+        - name: webhook-certs
+          secret:
+            defaultMode: 420
+            secretName: gpr-admission-webhook-certs
+      {{- include "kubeslice.imagePullSecrets" . | nindent 6 }}

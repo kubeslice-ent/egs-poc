@@ -1,0 +1,183 @@
+---
+# Default values for nsm.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+  
+insecure: true
+global:
+  # These values will be inherited from parent chart's global configuration
+  # imageRegistry: ""  # Inherited from parent
+  # imagePullSecrets: {}  # Inherited from parent
+  
+  # NSM-specific global configuration (will use parent's imagePullSecrets.secretName)
+  nsm_docker_existingImagePullSecret: ""  # Will be set by parent chart
+  
+  # Legacy configuration - kept for backward compatibility but not used when parent global config is available
+  nsm_docker_imagePullSecrets:
+    registry:  # Use registry instead of repository for consistency
+    username: ''
+    password: ''
+    email: ''
+  
+  # set to true to enable Jaeger tracing for NSM components
+  JaegerTracing: true
+
+forwardingPlane:
+  kernelImageRegistry: cmd-forwarder-kernel
+  kernelImageTag: 1.0.9
+  labels:
+    app: forwarder-kernel
+    "spiffe.io/spiffe-id": "true"
+  annotations: {}
+  containerSecurityContext: {}
+    # runAsUser: 65536
+    # runAsGroup: 65536
+    # runAsNonRoot: true
+    # seccompProfile:
+    #   type: RuntimeDefault
+    # allowPrivilegeEscalation: false
+    # capabilities:
+    #   drop:
+    #     - ALL
+    # readOnlyRootFilesystem: true
+  podSecurityContext: {}
+    # runAsUser: 65536               # Non-root user
+    # runAsGroup: 65536              # Non-root group
+    # runAsNonRoot: true             # Ensure the container does not run as root
+    # seccompProfile:
+    #   type: RuntimeDefault
+  resources: 
+    requests:
+      cpu: 150m
+    limits:
+      memory: 500Mi
+      cpu: 525m
+  tolerations:
+    - operator: "Exists"
+    - key: "kubeslice.io/egs"
+      operator: "Equal"
+      value: "dedicated-node"
+      effect: "NoSchedule"
+
+nsmgr:
+  imageRegistry: cmd-nsmgr
+  imageTag: 1.5.7
+  waitForItImageRegistry: wait-for-it
+  waitForItImageTag: 1.0.2
+  excludePrefixesImageRegistry: cmd-exclude-prefixes-k8s
+  excludePrefixesImageTag: 1.5.5
+  labels:
+    app: nsmgr
+    "spiffe.io/spiffe-id": "true"
+  annotations: {}
+  containerSecurityContext: {}
+    # runAsUser: 65536
+    # runAsGroup: 65536
+    # runAsNonRoot: true
+    # seccompProfile:
+    #   type: RuntimeDefault
+    # allowPrivilegeEscalation: false
+    # capabilities:
+    #   drop:
+    #     - ALL
+    # readOnlyRootFilesystem: true
+  podSecurityContext: {}
+    # runAsUser: 65536               # Non-root user
+    # runAsGroup: 65536              # Non-root group
+    # runAsNonRoot: true             # Ensure the container does not run as root
+    # seccompProfile:
+    #   type: RuntimeDefault
+  resources:
+    requests:
+      cpu: 200m
+      memory: 100Mi
+    limits:
+      memory: 200Mi
+      cpu: 500m
+  tolerations:
+    - key: "kubeslice.io/egs"
+      operator: "Equal"
+      value: "dedicated-node"
+      effect: "NoSchedule"
+    - key: "node.kubernetes.io/not-ready"
+      operator: "Exists"
+      effect: "NoExecute"
+      tolerationSeconds: 300
+    - key: "node.kubernetes.io/unreachable"
+      operator: "Exists"
+      effect: "NoExecute"
+      tolerationSeconds: 300
+    - key: "node.kubernetes.io/memory-pressure"
+      operator: "Exists"
+      effect: "NoSchedule"
+    - key: "node-role.kubernetes.io/control-plane"
+      operator: "Exists"
+      effect: "NoSchedule"
+  affinity: {}
+    # nodeAffinity:
+    #   requiredDuringSchedulingIgnoredDuringExecution:
+    #     nodeSelectorTerms:
+    #     - matchExpressions:
+    #       - key: kubeslice.io/node-type
+    #         operator: In
+    #         values:
+    #         - gateway
+
+registryK8s:
+  registryK8sImageRegistry: cmd-registry-k8s
+  registryK8sImageTag: 1.5.6
+  labels:
+    app: registry
+    "spiffe.io/spiffe-id": "true"
+  annotations: {}
+  containerSecurityContext: {}
+    # runAsUser: 65536
+    # runAsGroup: 65536
+    # runAsNonRoot: true
+    # seccompProfile:
+    #   type: RuntimeDefault
+    # allowPrivilegeEscalation: false
+    # capabilities:
+    #   drop:
+    #     - ALL
+    # readOnlyRootFilesystem: true
+  podSecurityContext: {}
+    # runAsUser: 65536               # Non-root user
+    # runAsGroup: 65536              # Non-root group
+    # runAsNonRoot: true             # Ensure the container does not run as root
+    # seccompProfile:
+    #   type: RuntimeDefault
+  resources:
+    requests:
+      cpu: 200m
+    limits:
+      memory: 100Mi
+      cpu: 600m
+  tolerations:
+    - key: "kubeslice.io/egs"
+      operator: "Equal"
+      value: "dedicated-node"
+      effect: "NoSchedule"
+    - key: "node.kubernetes.io/not-ready"
+      operator: "Exists"
+      effect: "NoExecute"
+      tolerationSeconds: 300
+    - key: "node.kubernetes.io/unreachable"
+      operator: "Exists"
+      effect: "NoExecute"
+      tolerationSeconds: 300
+    - key: "node.kubernetes.io/memory-pressure"
+      operator: "Exists"
+      effect: "NoSchedule"
+    - key: "node-role.kubernetes.io/control-plane"
+      operator: "Exists"
+      effect: "NoSchedule"
+  affinity: {}
+    # nodeAffinity:
+    #   requiredDuringSchedulingIgnoredDuringExecution:
+    #     nodeSelectorTerms:
+    #     - matchExpressions:
+    #       - key: kubeslice.io/node-type
+    #         operator: In
+    #         values:
+    #         - gateway

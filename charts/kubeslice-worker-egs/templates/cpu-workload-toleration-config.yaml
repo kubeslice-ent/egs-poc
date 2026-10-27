@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cpu-workload-toleration-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    component: cpu-workload-toleration-config
+data:
+  config.yaml: |
+    namespaces:
+      - "kube-system"
+      - "kubeslice-system"
+      - "kubeslice-controller"
+      - "gpu-operator"
+      - "monitoring"
+      - "egs-monitoring"
+      - "egs-gpu-operator"
+

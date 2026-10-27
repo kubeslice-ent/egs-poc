@@ -1,0 +1,18 @@
+# Default values for config.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+global:
+  # These values will be inherited from parent chart's global configuration
+  # imageRegistry: ""  # Inherited from parent
+  # imagePullSecrets: {}  # Inherited from parent
+  
+  # Config-specific global configuration (will use parent's imagePullSecrets.secretName)
+  nsmcfg_docker_existingImagePullSecret: ""  # Will be set by parent chart
+  
+  # Legacy configuration - kept for backward compatibility but not used when parent global config is available
+  nsmcfg_docker_imagePullSecrets:
+    registry:  # Use registry instead of repository for consistency
+    username: ''
+    password: ''
+    email: ''
