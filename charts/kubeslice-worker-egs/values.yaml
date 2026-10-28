@@ -1,7 +1,3 @@
-dev:
-  imageRegistry: harbor.saas1.smart-scaler.io/avesha/aveshadev
-
-
 global:
   # Centralized image registry configuration
   imageRegistry: harbor.saas1.smart-scaler.io/avesha/aveshasystems
@@ -35,8 +31,10 @@ global:
     openshift: false
 
 operator:
+  # Component registry override; other images use global.imageRegistry.
+  imageRegistry: harbor.saas1.smart-scaler.io/avesha/aveshadev
   image: worker-operator-ent-egs
-  tag: 1.18.0
+  tag: 1.19.0-RELEASE-f974b40f
   pullPolicy: IfNotPresent
   logLevel: INFO
   # Expiration (seconds) for slice-scoped ServiceAccount tokens minted via the TokenRequest API. Default 1 year.
@@ -234,16 +232,12 @@ istio:
     tag: 1.16.1
 
 aiops:
+  # Component registry override; other images use global.imageRegistry.
+  imageRegistry: harbor.saas1.smart-scaler.io/avesha/aveshadev
   image: kube-aiops-operator
-  tag: 1.18.0-RELEASE-271aa76c
+  tag: 1.18.0-RELEASE-94bc3ec2
   pullPolicy: IfNotPresent
   logLevel: INFO
-  predictorIngressDomain: "example.com"
-  # nginx ingress auth-url for inference-tile ingresses; should point at egs-inference-auth-server's
-  # /validate endpoint (deployed on the controller cluster — needs to be reachable from this
-  # cluster's ingress controller, e.g. via a public endpoint). Left empty by default: no auth-url
-  # annotation is set on inference-tile ingresses until this is configured.
-  predictorAuthUrl: ""
   labels:
     control-plane: aiops-controller-manager
   annotations:
@@ -339,13 +333,13 @@ egsAgent:
                 matchExpressions:
                   - key: "node.kubernetes.io/gpu"
                     operator: "DoesNotExist"
-          # requiredDuringSchedulingIgnoredDuringExecution:
-          #   nodeSelectorTerms:
-          #   - matchExpressions:
-          #     - key: kubernetes.io/arch
-          #       operator: NotIn
-          #       values:
-          #       - arm64
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/arch
+                operator: NotIn
+                values:
+                - arm64
 
 egsGpuAgent:
   image: egs-gpu-agent
@@ -483,3 +477,23 @@ netop:
   enabled: true
   netop:
     networkInterface: eth0
+
+# Ingress NGINX controller for protected workload endpoints (ingress-enabled WorkloadPlacements).
+# Off by default; enable on clusters that serve endpoints and have no nginx controller yet.
+ingress-nginx:
+  enabled: false
+  controller:
+    allowSnippetAnnotations: true
+    ingressClass: nginx
+    ingressClassResource:
+      name: nginx
+    # Fallback TLS certificate as <namespace>/<secret>; nginx serves its self-signed one if it is missing.
+    extraArgs:
+      default-ssl-certificate: kubeslice-system/nginx-tls
+    config:
+      http-snippet: |
+        limit_req_zone $binary_remote_addr zone=global_limit:20m rate=10r/s;
+      server-snippet: |
+        limit_req zone=global_limit burst=20 nodelay;
+      limit-req-status-code: "429"
+      limit-conn-status-code: "429"

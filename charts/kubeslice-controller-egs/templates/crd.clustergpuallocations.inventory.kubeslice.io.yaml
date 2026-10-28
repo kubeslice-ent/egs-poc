@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.4
+    controller-gen.kubebuilder.io/version: v0.15.0
   name: clustergpuallocations.inventory.kubeslice.io
 spec:
   group: inventory.kubeslice.io
@@ -180,11 +180,6 @@ spec:
                     timeSinceNoUtilization:
                       description: TimeSinceNoUtilization is set when all GPUs on
                         the node are free; nil when there is utilization.
-                      format: date-time
-                      type: string
-                    timeSinceUnhealthy:
-                      description: TimeSinceUnhealthy is set when the node is unhealthy;
-                        nil when the node is healthy
                       format: date-time
                       type: string
                     totalCPUs:

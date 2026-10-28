@@ -42,6 +42,10 @@ spec:
           args:
             - -config
             - /run/spire/config/server.conf
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           ports:
             - containerPort: 8081
           volumeMounts:

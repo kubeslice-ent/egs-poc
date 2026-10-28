@@ -75,9 +75,9 @@ rules:
   - gprautoevictions
   - gprtemplates
   - gprtemplatebindings
-  - inferencetiles
   - workloadtemplates
   - workloadplacements
+  - inferencetiles
   verbs:
   - create
   - delete
@@ -93,9 +93,9 @@ rules:
   - gprautoevictions/finalizers
   - gprtemplates/finalizers
   - gprtemplatebindings/finalizers
-  - inferencetiles/finalizers
   - workloadtemplates/finalizers
   - workloadplacements/finalizers
+  - inferencetiles/finalizers
   verbs:
   - update
 - apiGroups:
@@ -105,9 +105,9 @@ rules:
   - gprautoevictions/status
   - gprtemplates/status
   - gprtemplatebindings/status
-  - inferencetiles/status
   - workloadtemplates/status
   - workloadplacements/status
+  - inferencetiles/status
   verbs:
   - get
   - patch
@@ -184,6 +184,19 @@ rules:
   - watch
   - patch
   - update
+# Workload endpoint gateway: one SliceNSGateway per protected-ingress WorkloadPlacement
+- apiGroups:
+  - controller.kubeslice.io
+  resources:
+  - slicensgateways
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

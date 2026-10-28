@@ -154,7 +154,13 @@ kserve:
       disableIstioVirtualHost: false
 
       # -- Whether to disable ingress creation for RawDeployment mode.
-      disableIngressCreation: false
+      # Must stay true: kube-aiops-operator (not KServe) owns Ingress creation for
+      # InferenceServices so it can attach the egs-inference-auth-server auth-url
+      # annotation and the {name}-{endpointKey} host. If KServe creates its own
+      # Ingress first, kube-aiops-operator's ensureIngress() sees one already exists
+      # and skips creating the auth-annotated one, silently breaking inference-endpoint
+      # token auth.
+      disableIngressCreation: true
 
       localGateway:
         # -- localGateway specifies the gateway which handles the network traffic within the cluster.
@@ -407,7 +413,7 @@ kserve:
             - ALL
     pmmlserver:
       image: kserve-pmmlserver
-      tag: v0.14.1
+      tag: v0.14.0
       imagePullSecrets: []
       securityContext:
         allowPrivilegeEscalation: false

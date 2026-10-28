@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.5
+    controller-gen.kubebuilder.io/version: v0.15.0
   name: workspacepolicies.gpr.kubeslice.io
 spec:
   group: gpr.kubeslice.io
@@ -74,12 +74,6 @@ spec:
                   when they reach a terminal state. Default false (no cleanup). Individual GPRs can
                   override this by setting their own enableGPUCleanup field.
                 type: boolean
-              enableTimeSlicing:
-                default: false
-                description: |-
-                  EnableTimeSlicing enables time-slicing for GPRs in this workspace
-                  When enabled, low priority GPRs with same GPU shape can share GPU resources through time-slicing
-                type: boolean
               enforcePolicy:
                 default: false
                 description: |-
@@ -137,12 +131,6 @@ spec:
                       be applied to
                     type: string
                 type: object
-              timeSliceDuration:
-                default: 10m
-                description: |-
-                  TimeSliceDuration is the duration of each time slot for time-sliced GPRs
-                  Format: duration string (e.g., "5m", "10m", "30m")
-                type: string
             required:
             - enableAutoEviction
             - requeueOnFailure

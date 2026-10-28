@@ -2,9 +2,9 @@
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
+  name: slicensgateways.controller.kubeslice.io
   annotations:
     controller-gen.kubebuilder.io/version: v0.19.0
-  name: slicensgateways.controller.kubeslice.io
 spec:
   group: controller.kubeslice.io
   names:
@@ -33,23 +33,27 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: SliceNSGateway is the Schema for multi-cluster service routing
-          across slice networks
+        description: SliceNSGateway is the Schema for multi-cluster service routing across slice networks
         properties:
           apiVersion:
-            description: |-
-              APIVersion defines the versioned schema of this representation of an object.
+            description: 'APIVersion defines the versioned schema of this representation of an object.
+
               Servers should convert recognized schemas to the latest internal value, and
+
               may reject unrecognized values.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: |-
-              Kind is a string value representing the REST resource this object represents.
+            description: 'Kind is a string value representing the REST resource this object represents.
+
               Servers may infer this from the endpoint the client submits requests to.
+
               Cannot be updated.
+
               In CamelCase.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -57,21 +61,22 @@ spec:
             description: SliceNSGatewaySpec defines the desired state of SliceNSGateway
             properties:
               appNamespace:
-                description: |-
-                  AppNamespace is the namespace where the SliceNSGateway will be deployed in the worker cluster
-                  This namespace must be onboarded to the slice
+                description: 'AppNamespace is the namespace where the SliceNSGateway will be deployed
+                  in the worker cluster
+
+                  This namespace must be onboarded to the slice'
                 minLength: 1
                 type: string
               backends:
-                description: |-
-                  Backends defines the backend services with weights for load balancing
-                  Can be used instead of or in addition to ServiceExportName
+                description: 'Backends defines the backend services with weights for load balancing
+
+                  Can be used instead of or in addition to ServiceExportName'
                 items:
                   description: BackendConfig defines a backend service configuration
                   properties:
                     cluster:
-                      description: Cluster identifies the cluster name for remote
-                        backends (optional, for documentation)
+                      description: Cluster identifies the cluster name for remote backends (optional,
+                        for documentation)
                       type: string
                     loadBalancingMode:
                       allOf:
@@ -82,34 +87,38 @@ spec:
                         - RR
                         - Weighted
                       default: Weighted
-                      description: |-
-                        LoadBalancingMode defines how to distribute traffic for this backend
-                        RR: Round-robin across all endpoints (equal weight) - single backend with all ServiceImport endpoints
-                        Weighted: Use weights to distribute traffic - weights are automatically calculated based on pod/endpoint counts
-                        If not specified, defaults to Weighted for backward compatibility
+                      description: 'LoadBalancingMode defines how to distribute traffic for this backend
+
+                        RR: Round-robin across all endpoints (equal weight) - single backend with all
+                        ServiceImport endpoints
+
+                        Weighted: Use weights to distribute traffic - weights are automatically calculated
+                        based on pod/endpoint counts
+
+                        If not specified, defaults to Weighted for backward compatibility'
                       type: string
                     name:
                       description: Name is a unique identifier for this backend
                       minLength: 1
                       type: string
                     nsmIP:
-                      description: |-
-                        NSMIP defines the NSM IP address of the remote gateway pod (for type: remote)
-                        Alternative to ServiceImport for direct NSM IP specification
+                      description: 'NSMIP defines the NSM IP address of the remote gateway pod (for type:
+                        remote)
+
+                        Alternative to ServiceImport for direct NSM IP specification'
                       format: ipv4
                       type: string
                     service:
-                      description: 'Service defines the local Kubernetes Service (for
-                        type: local)'
+                      description: 'Service defines the local Kubernetes Service (for type: local)'
                       properties:
                         name:
                           description: Name of the Kubernetes Service
                           minLength: 1
                           type: string
                         namespace:
-                          description: |-
-                            Namespace of the Kubernetes Service
-                            If empty, defaults to the same namespace as SliceNSGateway
+                          description: 'Namespace of the Kubernetes Service
+
+                            If empty, defaults to the same namespace as SliceNSGateway'
                           type: string
                         port:
                           description: Port is the port number of the service
@@ -122,17 +131,16 @@ spec:
                       - port
                       type: object
                     serviceImport:
-                      description: 'ServiceImport defines the remote ServiceImport
-                        (for type: remote)'
+                      description: 'ServiceImport defines the remote ServiceImport (for type: remote)'
                       properties:
                         name:
                           description: Name of the ServiceImport
                           minLength: 1
                           type: string
                         namespace:
-                          description: |-
-                            Namespace of the ServiceImport
-                            If empty, defaults to the same namespace as SliceNSGateway
+                          description: 'Namespace of the ServiceImport
+
+                            If empty, defaults to the same namespace as SliceNSGateway'
                           type: string
                         port:
                           description: Port is the port number of the service
@@ -145,8 +153,7 @@ spec:
                       - port
                       type: object
                     type:
-                      description: Type specifies whether this is a local or remote
-                        backend
+                      description: Type specifies whether this is a local or remote backend
                       enum:
                       - local
                       - remote
@@ -157,92 +164,102 @@ spec:
                   type: object
                 type: array
               circuitBreakerConfig:
-                description: |-
-                  CircuitBreakerConfig defines circuit breaker settings for backend connections
-                  These settings help handle parallel requests and prevent connection pool exhaustion
+                description: 'CircuitBreakerConfig defines circuit breaker settings for backend connections
+
+                  These settings help handle parallel requests and prevent connection pool exhaustion'
                 properties:
                   maxConnections:
                     default: 2048
-                    description: |-
-                      MaxConnections is the maximum number of connections that Envoy will establish to the backend
-                      Default: 1024
+                    description: 'MaxConnections is the maximum number of connections that Envoy will
+                      establish to the backend
+
+                      Default: 1024'
                     format: int32
                     maximum: 2147483647
                     minimum: 0
                     type: integer
                   maxParallelRequests:
                     default: 2048
-                    description: |-
-                      MaxParallelRequests is the maximum number of parallel requests that Envoy will make to the backend
-                      Default: 1024
+                    description: 'MaxParallelRequests is the maximum number of parallel requests that
+                      Envoy will make to the backend
+
+                      Default: 1024'
                     format: int32
                     maximum: 2147483647
                     minimum: 0
                     type: integer
                   maxParallelRetries:
                     default: 3
-                    description: |-
-                      MaxParallelRetries is the maximum number of parallel retries that Envoy will make to the backend
-                      Default: 1024
+                    description: 'MaxParallelRetries is the maximum number of parallel retries that Envoy
+                      will make to the backend
+
+                      Default: 1024'
                     format: int32
                     maximum: 2147483647
                     minimum: 0
                     type: integer
                   maxPendingRequests:
                     default: 2048
-                    description: |-
-                      MaxPendingRequests is the maximum number of pending requests that Envoy will queue to the backend
-                      Default: 1024
+                    description: 'MaxPendingRequests is the maximum number of pending requests that Envoy
+                      will queue to the backend
+
+                      Default: 1024'
                     format: int32
                     maximum: 2147483647
                     minimum: 0
                     type: integer
                 type: object
               clusterName:
-                description: |-
-                  ClusterName defines the name of the worker cluster where the gateway will be deployed
-                  This field is required for controller-managed SliceNSGateway
+                description: 'ClusterName defines the name of the worker cluster where the gateway will
+                  be deployed
+
+                  This field is required for controller-managed SliceNSGateway'
                 minLength: 1
                 type: string
               fqdn:
-                description: FQDN is the fully qualified domain name for external
-                  access
+                description: FQDN is the fully qualified domain name for external access
                 items:
                   type: string
                 minItems: 1
                 type: array
               gatewayRef:
-                description: |-
-                  GatewayRef references the Gateway resource (gateway.networking.k8s.io/v1) to use
-                  The Gateway CR can be created by operators directly or auto-created by SliceNSGateway reconciler (via autoCreate: true)
+                description: 'GatewayRef references the Gateway resource (gateway.networking.k8s.io/v1)
+                  to use
+
+                  The Gateway CR can be created by operators directly or auto-created by SliceNSGateway
+                  reconciler (via autoCreate: true)'
                 properties:
                   autoCreate:
-                    description: |-
-                      AutoCreate enables automatic Gateway creation if not found
-                      Defaults to false
+                    description: 'AutoCreate enables automatic Gateway creation if not found
+
+                      Defaults to false'
                     type: boolean
                   externalTrafficPolicy:
                     default: Cluster
-                    description: |-
-                      ExternalTrafficPolicy specifies the external traffic policy for the Envoy Gateway service
+                    description: 'ExternalTrafficPolicy specifies the external traffic policy for the
+                      Envoy Gateway service
+
                       Valid options are: Local, Cluster
+
                       Local: Preserves source IP, routes only to local endpoints
+
                       Cluster: Routes traffic to all endpoints (may lose source IP)
-                      Defaults to Cluster if not specified
+
+                      Defaults to Cluster if not specified'
                     enum:
                     - Local
                     - Cluster
                     type: string
                   gatewayClassName:
-                    description: GatewayClassName specifies the GatewayClass to use
-                      when auto-creating
+                    description: GatewayClassName specifies the GatewayClass to use when auto-creating
                     type: string
                   loggingLevel:
                     default: warn
-                    description: |-
-                      LoggingLevel specifies the default logging level for Envoy Gateway
+                    description: 'LoggingLevel specifies the default logging level for Envoy Gateway
+
                       Valid options are: debug, info, warn, error
-                      Defaults to warn if not specified
+
+                      Defaults to warn if not specified'
                     enum:
                     - debug
                     - info
@@ -254,16 +271,18 @@ spec:
                     minLength: 1
                     type: string
                   namespace:
-                    description: |-
-                      Namespace of the Gateway resource
-                      If empty, defaults to the same namespace as SliceNSGateway
+                    description: 'Namespace of the Gateway resource
+
+                      If empty, defaults to the same namespace as SliceNSGateway'
                     type: string
                   serviceType:
                     default: LoadBalancer
-                    description: |-
-                      ServiceType specifies the Kubernetes Service type for the Envoy Gateway service when auto-creating
+                    description: 'ServiceType specifies the Kubernetes Service type for the Envoy Gateway
+                      service when auto-creating
+
                       Valid options are: LoadBalancer, ClusterIP, NodePort
-                      Defaults to LoadBalancer if not specified
+
+                      Defaults to LoadBalancer if not specified'
                     enum:
                     - LoadBalancer
                     - ClusterIP
@@ -273,10 +292,12 @@ spec:
                 - name
                 type: object
               ports:
-                description: |-
-                  Ports defines the ports exposed by the service gateway
+                description: 'Ports defines the ports exposed by the service gateway
+
                   Defaults to port 8080 if not specified
-                  When ServiceExportName is provided, ports from ServiceImport.Spec.Ports will be used instead
+
+                  When ServiceExportName is provided, ports from ServiceImport.Spec.Ports will be used
+                  instead'
                 items:
                   description: PortConfig defines port configuration
                   properties:
@@ -291,8 +312,7 @@ spec:
                       type: integer
                     protocol:
                       default: HTTP
-                      description: Protocol is the protocol (HTTP, HTTPS, TCP, TLS,
-                        GRPC)
+                      description: Protocol is the protocol (HTTP, HTTPS, TCP, TLS, GRPC)
                       enum:
                       - HTTP
                       - HTTPS
@@ -308,20 +328,18 @@ spec:
                   type: object
                 type: array
               routingRules:
-                description: RoutingRules defines advanced routing rules (header-based,
-                  path-based)
+                description: RoutingRules defines advanced routing rules (header-based, path-based)
                 items:
                   description: RoutingRule defines advanced routing rules
                   properties:
                     backends:
-                      description: Backends defines the backends to use when this
-                        rule matches
+                      description: Backends defines the backends to use when this rule matches
                       items:
                         description: BackendConfig defines a backend service configuration
                         properties:
                           cluster:
-                            description: Cluster identifies the cluster name for remote
-                              backends (optional, for documentation)
+                            description: Cluster identifies the cluster name for remote backends (optional,
+                              for documentation)
                             type: string
                           loadBalancingMode:
                             allOf:
@@ -332,34 +350,39 @@ spec:
                               - RR
                               - Weighted
                             default: Weighted
-                            description: |-
-                              LoadBalancingMode defines how to distribute traffic for this backend
-                              RR: Round-robin across all endpoints (equal weight) - single backend with all ServiceImport endpoints
-                              Weighted: Use weights to distribute traffic - weights are automatically calculated based on pod/endpoint counts
-                              If not specified, defaults to Weighted for backward compatibility
+                            description: 'LoadBalancingMode defines how to distribute traffic for this
+                              backend
+
+                              RR: Round-robin across all endpoints (equal weight) - single backend with
+                              all ServiceImport endpoints
+
+                              Weighted: Use weights to distribute traffic - weights are automatically
+                              calculated based on pod/endpoint counts
+
+                              If not specified, defaults to Weighted for backward compatibility'
                             type: string
                           name:
                             description: Name is a unique identifier for this backend
                             minLength: 1
                             type: string
                           nsmIP:
-                            description: |-
-                              NSMIP defines the NSM IP address of the remote gateway pod (for type: remote)
-                              Alternative to ServiceImport for direct NSM IP specification
+                            description: 'NSMIP defines the NSM IP address of the remote gateway pod (for
+                              type: remote)
+
+                              Alternative to ServiceImport for direct NSM IP specification'
                             format: ipv4
                             type: string
                           service:
-                            description: 'Service defines the local Kubernetes Service
-                              (for type: local)'
+                            description: 'Service defines the local Kubernetes Service (for type: local)'
                             properties:
                               name:
                                 description: Name of the Kubernetes Service
                                 minLength: 1
                                 type: string
                               namespace:
-                                description: |-
-                                  Namespace of the Kubernetes Service
-                                  If empty, defaults to the same namespace as SliceNSGateway
+                                description: 'Namespace of the Kubernetes Service
+
+                                  If empty, defaults to the same namespace as SliceNSGateway'
                                 type: string
                               port:
                                 description: Port is the port number of the service
@@ -372,17 +395,16 @@ spec:
                             - port
                             type: object
                           serviceImport:
-                            description: 'ServiceImport defines the remote ServiceImport
-                              (for type: remote)'
+                            description: 'ServiceImport defines the remote ServiceImport (for type: remote)'
                             properties:
                               name:
                                 description: Name of the ServiceImport
                                 minLength: 1
                                 type: string
                               namespace:
-                                description: |-
-                                  Namespace of the ServiceImport
-                                  If empty, defaults to the same namespace as SliceNSGateway
+                                description: 'Namespace of the ServiceImport
+
+                                  If empty, defaults to the same namespace as SliceNSGateway'
                                 type: string
                               port:
                                 description: Port is the port number of the service
@@ -395,8 +417,7 @@ spec:
                             - port
                             type: object
                           type:
-                            description: Type specifies whether this is a local or
-                              remote backend
+                            description: Type specifies whether this is a local or remote backend
                             enum:
                             - local
                             - remote
@@ -420,8 +441,7 @@ spec:
                                 type: string
                               type:
                                 default: exact
-                                description: Type defines the matching type (exact,
-                                  prefix, regex)
+                                description: Type defines the matching type (exact, prefix, regex)
                                 enum:
                                 - exact
                                 - prefix
@@ -436,36 +456,33 @@ spec:
                             type: object
                           type: array
                         method:
-                          description: Method defines gRPC method/service matching
-                            criteria (for gRPC routes)
+                          description: Method defines gRPC method/service matching criteria (for gRPC
+                            routes)
                           properties:
                             method:
-                              description: |-
-                                Method is the gRPC method name to match (e.g., "Ping")
-                                If empty, matches all methods in the service
+                              description: 'Method is the gRPC method name to match (e.g., "Ping")
+
+                                If empty, matches all methods in the service'
                               type: string
                             service:
-                              description: |-
-                                Service is the gRPC service name to match (e.g., "yages.Echo")
-                                If empty, matches all services
+                              description: 'Service is the gRPC service name to match (e.g., "yages.Echo")
+
+                                If empty, matches all services'
                               type: string
                             type:
                               default: exact
-                              description: Type defines the matching type (exact,
-                                regex)
+                              description: Type defines the matching type (exact, regex)
                               enum:
                               - exact
                               - regex
                               type: string
                           type: object
                         path:
-                          description: Path defines path matching criteria (for HTTP
-                            routes)
+                          description: Path defines path matching criteria (for HTTP routes)
                           properties:
                             type:
                               default: prefix
-                              description: Type defines the matching type (exact,
-                                prefix, regex)
+                              description: Type defines the matching type (exact, prefix, regex)
                               enum:
                               - exact
                               - prefix
@@ -480,9 +497,10 @@ spec:
                       type: object
                     priority:
                       default: 0
-                      description: |-
-                        Priority defines the order in which rules are evaluated (higher = first)
-                        Defaults to 0 if not specified
+                      description: 'Priority defines the order in which rules are evaluated (higher =
+                        first)
+
+                        Defaults to 0 if not specified'
                       format: int32
                       minimum: 0
                       type: integer
@@ -492,35 +510,42 @@ spec:
                   type: object
                 type: array
               serviceExportName:
-                description: |-
-                  ServiceExportName is the name of the ServiceExport (which will be the same as ServiceImport name)
+                description: 'ServiceExportName is the name of the ServiceExport (which will be the same
+                  as ServiceImport name)
+
                   The controller will dynamically create backends, headless services, and endpoint slices
-                  based on the ServiceImport endpoints. Routes will be created for each port in ServiceImport.Spec.Ports
+
+                  based on the ServiceImport endpoints. Routes will be created for each port in ServiceImport.Spec.Ports'
                 type: string
               sliceName:
-                description: SliceName defines the name of the slice (workspace) for
-                  this service gateway
+                description: SliceName defines the name of the slice (workspace) for this service gateway
                 minLength: 1
                 type: string
               timeoutConfig:
-                description: |-
-                  TimeoutConfig defines timeout settings for HTTP requests
-                  These timeouts are applied to all HTTPRoute rules created by this SliceNSGateway
+                description: 'TimeoutConfig defines timeout settings for HTTP requests
+
+                  These timeouts are applied to all HTTPRoute rules created by this SliceNSGateway'
                 properties:
                   backendRequestTimeout:
-                    description: |-
-                      BackendRequestTimeout specifies a timeout for an individual request from the gateway to a backend
+                    description: 'BackendRequestTimeout specifies a timeout for an individual request
+                      from the gateway to a backend
+
                       Format: Gateway API Duration string (e.g., "60s", "5m", "300s")
+
                       Must be <= RequestTimeout if both are specified
-                      Default: implementation-specific (typically same as RequestTimeout)
+
+                      Default: implementation-specific (typically same as RequestTimeout)'
                     pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
                     type: string
                   requestTimeout:
-                    description: |-
-                      RequestTimeout specifies the maximum duration for a gateway to respond to an HTTP request
+                    description: 'RequestTimeout specifies the maximum duration for a gateway to respond
+                      to an HTTP request
+
                       Format: Gateway API Duration string (e.g., "60s", "5m", "300s")
+
                       Default: 15s (Envoy Gateway default)
-                      Setting to "0s" disables the timeout (uses maximum possible value)
+
+                      Setting to "0s" disables the timeout (uses maximum possible value)'
                     pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
                     type: string
                 type: object
@@ -539,8 +564,7 @@ spec:
                   description: BackendStatus represents the status of a backend
                   properties:
                     message:
-                      description: Message provides additional information about the
-                        status
+                      description: Message provides additional information about the status
                       type: string
                     name:
                       description: Name of the backend
@@ -549,8 +573,7 @@ spec:
                       description: NSMIP is the resolved NSM IP (for remote backends)
                       type: string
                     status:
-                      description: Status indicates the backend status (Ready, Pending,
-                        Error)
+                      description: Status indicates the backend status (Ready, Pending, Error)
                       enum:
                       - Ready
                       - Pending
@@ -574,36 +597,46 @@ spec:
               conditions:
                 description: Conditions represent the latest available observations
                 items:
-                  description: Condition contains details for one aspect of the current
-                    state of this API Resource.
+                  description: Condition contains details for one aspect of the current state of this
+                    API Resource.
                   properties:
                     lastTransitionTime:
-                      description: |-
-                        lastTransitionTime is the last time the condition transitioned from one status to another.
-                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      description: 'lastTransitionTime is the last time the condition transitioned from
+                        one status to another.
+
+                        This should be when the underlying condition changed.  If that is not known, then
+                        using the time when the API field changed is acceptable.'
                       format: date-time
                       type: string
                     message:
-                      description: |-
-                        message is a human readable message indicating details about the transition.
-                        This may be an empty string.
+                      description: 'message is a human readable message indicating details about the transition.
+
+                        This may be an empty string.'
                       maxLength: 32768
                       type: string
                     observedGeneration:
-                      description: |-
-                        observedGeneration represents the .metadata.generation that the condition was set based upon.
-                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
-                        with respect to the current state of the instance.
+                      description: 'observedGeneration represents the .metadata.generation that the condition
+                        was set based upon.
+
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration
+                        is 9, the condition is out of date
+
+                        with respect to the current state of the instance.'
                       format: int64
                       minimum: 0
                       type: integer
                     reason:
-                      description: |-
-                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
-                        Producers of specific condition types may define expected values and meanings for this field,
+                      description: 'reason contains a programmatic identifier indicating the reason for
+                        the condition''s last transition.
+
+                        Producers of specific condition types may define expected values and meanings
+                        for this field,
+
                         and whether the values are considered a guaranteed API.
+
                         The value should be a CamelCase string.
-                        This field may not be empty.
+
+                        This field may not be empty.'
                       maxLength: 1024
                       minLength: 1
                       pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
@@ -611,8 +644,8 @@ spec:
                     status:
                       description: status of the condition, one of True, False, Unknown.
                       enum:
-                      - "True"
-                      - "False"
+                      - 'True'
+                      - 'False'
                       - Unknown
                       type: string
                     type:
@@ -652,12 +685,10 @@ spec:
                 description: HTTPRoute is the name of the created HTTPRoute
                 type: string
               loadBalancerIP:
-                description: LoadBalancerIP is the external IP of the LoadBalancer
-                  service (if applicable)
+                description: LoadBalancerIP is the external IP of the LoadBalancer service (if applicable)
                 type: string
               observedGeneration:
-                description: ObservedGeneration is the generation last observed by
-                  the controller
+                description: ObservedGeneration is the generation last observed by the controller
                 format: int64
                 type: integer
               phase:

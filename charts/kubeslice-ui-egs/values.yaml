@@ -1,10 +1,6 @@
 # Default values for k-native.
 # This is a YAML-formatted file.
-# Declare variables to be passed into your templates.
-dev:
-  imageRegistry: harbor.saas1.smart-scaler.io/avesha/aveshadev
-
-
+# Declare variables to be passed into your templates. 
 global:
   # Global image registry configuration
   imageRegistry: harbor.saas1.smart-scaler.io/avesha/aveshasystems
@@ -104,8 +100,10 @@ kubeslice:
                   - key: "node.kubernetes.io/gpu"
                     operator: "DoesNotExist"
   uiv2:
+    # Component registry override; other images use global.imageRegistry.
+    imageRegistry: harbor.saas1.smart-scaler.io/avesha/aveshadev
     image: kubeslice-ui-v2-ent-egs
-    tag: 1.18.0
+    tag: 1.19.0-RELEASE-367ee3be
     pullPolicy: IfNotPresent
     service:
       type: ClusterIP
@@ -252,15 +250,22 @@ kubeslice:
                     operator: "DoesNotExist"
 
   apigw:
+    # Component registry override; other images use global.imageRegistry.
+    imageRegistry: harbor.saas1.smart-scaler.io/avesha/aveshadev
     image: kubeslice-api-gw-ent-egs
-    tag: 1.19.0-RELEASE-a32f68b7
+    tag: 1.19.0-RELEASE-6709752f
     pullPolicy: IfNotPresent
-    # Database used to store API keys for token-protected custom workload endpoints.
-    # Defaults to the same Postgres credentials Secret used by egs-core-apis.
     workloadEndpointDatabase:
       enabled: true
-      secretName: "kubetally-db-credentials"
-      ssl: false
+      # Same credential database as egs.inferenceAuthServer in the controller chart.
+      existingSecret: kubetally-db-credentials
+      cloudSqlProxy:
+        enabled: true
+        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.18.0
+        instanceConnectionName: "smartscaler:us-east4:smartscaler-saas-prod-postgres"
+        # DevOps must bind kubeslice-controller/kubeslice-api-gw to this account.
+        gcpServiceAccount: "egs-cloudsql-wi-sa@smartscaler.iam.gserviceaccount.com"
+        port: 5432
     env:
       - name: DCGM_METRIC_JOB_VALUE
         value: gpu-metrics
@@ -313,6 +318,22 @@ kubeslice:
     image: egs-core-apis
     tag: 1.15.0
     pullPolicy: IfNotPresent
+    # Hugging Face token for inference model downloads. Do not commit; pass with --set at install time.
+    inferenceModelToken: ""
+    # Cloud SQL Auth Proxy sidecar. Needed because this image builds its Postgres DSN with a
+    # hardcoded sslmode=disable, so it cannot connect to an instance that requires encryption.
+    # The proxy gives it TLS without an application change: the app talks to 127.0.0.1 inside
+    # the pod, and the proxy authenticates with IAM and encrypts everything on the wire.
+    # Only enable this where Cloud SQL is the database.
+    cloudSqlProxy:
+      enabled: true
+      image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.18.0
+      # Project:region:instance of the Cloud SQL instance.
+      instanceConnectionName: "smartscaler:us-east4:smartscaler-saas-prod-postgres"
+      # Google service account holding roles/cloudsql.client, bound to this chart's Kubernetes
+      # service account through Workload Identity.
+      gcpServiceAccount: "egs-cloudsql-wi-sa@smartscaler.iam.gserviceaccount.com"
+      port: 5432
     service:
       type: ClusterIP
     labels:

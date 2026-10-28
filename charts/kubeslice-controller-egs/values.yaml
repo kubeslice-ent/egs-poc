@@ -1,11 +1,6 @@
 # Default values for k-native.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
-
-dev:
-  imageRegistry: harbor.saas1.smart-scaler.io/avesha/aveshadev
-
-
 global:
   # Global image registry configuration
   imageRegistry: harbor.saas1.smart-scaler.io/avesha/aveshasystems
@@ -34,16 +29,16 @@ global:
     openshift: false
   kubeTally:
     # Enable or disable KubeTally
-    enabled: false
+    enabled: true
     postgresSecretName: kubetally-db-credentials   # Default value, secret name can be overridden
-    existingSecret: false                # Set to true if secret is pre-created externally
+    existingSecret: true                # Set to true if secret is pre-created externally
     # Ensure to configure the mandatory PostgreSQL database settings when 'kubetally enable' is true.
-    postgresAddr:                         # Optional, can be specified here or retrieved from the secret
-    postgresPort:                          # Optional, can be specified here or retrieved from the secret
-    postgresUser:                        # Optional, can be specified here or retrieved from the secret
-    postgresPassword:                     # Optional, can be specified here or retrieved from the secret
-    postgresDB:                          # Optional, can be specified here or retrieved from the secret
-    postgresSslmode: require            # optional, default: require other values: disable
+    postgresAddr: "kt-postgresql.kt-postgresql.svc.cluster.local"                        # Optional, can be specified here or retrieved from the secret
+    postgresPort: 5432                        # Optional, can be specified here or retrieved from the secret
+    postgresUser: "postgres"                       # Optional, can be specified here or retrieved from the secret
+    postgresPassword: "postgres"               # Optional, can be specified here or retrieved from the secret
+    postgresDB: "postgres"                          # Optional, can be specified here or retrieved from the secret
+    postgresSslmode: disable            # optional, default: require other values: disable
 
     # Service type for price Service Type
     priceServiceType: ClusterIP
@@ -61,7 +56,7 @@ global:
     pricingUpdaterSchedule: 0 0 1 * *
     
     # updates price for listed cloud providers
-    pricingUpdaterCloudProviders: "aws,linode"
+    pricingUpdaterCloudProviders: "linode"
 
 kubeslice:
   # Configuration for the RBAC proxy
@@ -102,11 +97,13 @@ kubeslice:
     # Prefix for project namespaces created by KubeSlice
     projectnsPrefix: kubeslice
     # Endpoint for the controller (should be specified if needed)
-    endpoint: ""
+    endpoint: "https://34.48.235.27"
+    # Component registry override; other images use global.imageRegistry.
+    imageRegistry: harbor.saas1.smart-scaler.io/avesha/aveshadev
     # Image name for the KubeSlice controller
     image: kubeslice-controller-ent-egs
     # Image tag for the KubeSlice controller
-    tag: 1.18.0
+    tag: 1.19.0-RELEASE-b5bd1400
     # Image pull policy for the KubeSlice controller
     pullPolicy: IfNotPresent
     # Configuration for kubeTally, which handles chargeback and metrics
@@ -122,7 +119,7 @@ kubeslice:
       # Configuration for MinIO
       minio:
         # Whether to install MinIO
-        install: "true"
+        install: "false"
         # Storage size for MinIO
         storage: 1Gi
         # Username for MinIO
@@ -190,10 +187,12 @@ kubeslice:
 
 egs:
   gprManager:
+    # Component registry override; other images use global.imageRegistry.
+    imageRegistry: harbor.saas1.smart-scaler.io/avesha/aveshadev
     # Image name for the gpr-manager
     image: gpr-manager
     # Image tag for the gpr-manager
-    tag: 1.17.0-RELEASE-bbc129d4
+    tag: 1.17.0-RELEASE-dfce2da0
     imagePullPolicy: IfNotPresent
     # Period for checking if there is queue processing needed (in seconds)
     qmgrCheckPeriod: 60
@@ -311,6 +310,17 @@ egs:
     service:
       name: egs-inventory-manager
       port: 80
+    linodeToken: "" # Linode token for the inventory-manager to list Linode instances
+    defaultDynamicTotalGpuNodes: ""
+    gpuCleanupTimeoutSeconds: 120
+    # Comma-separated CSP instance-type IDs (e.g. "g2-gpu-rtx4000a1-l,g2-gpu-rtx4000a2-m") that
+    # dynamic-node provisioning is restricted to, applied uniformly to every CSP-enabled cluster
+    # this inventory-manager reconciles. Left empty, every CSP-returned instance type is allowed.
+    dynamicNodePreferredInstances: ""
+    # Shared secret required on the MarkGPUCleaned RPC. Must match egsGpuAgent.inventoryManagerToken
+    # in the kubeslice-worker-egs chart. Left empty by default: the RPC runs unauthenticated
+    # (with a startup warning) until this is set on both sides.
+    token: ""
     labels:
       control-plane: inventory-controller-manager
     annotations:
@@ -332,17 +342,6 @@ egs:
       runAsNonRoot: true             # Ensure the container does not run as root
       seccompProfile:
         type: RuntimeDefault
-    linodeToken: "" # Linode token for the inventory-manager to list Linode instances
-    defaultDynamicTotalGpuNodes: ""
-    # Comma-separated CSP instance-type IDs (e.g. "g2-gpu-rtx4000a1-l,g2-gpu-rtx4000a2-m") that
-    # dynamic-node provisioning is restricted to, applied uniformly to every CSP-enabled cluster
-    # this inventory-manager reconciles. Left empty, every CSP-returned instance type is allowed.
-    dynamicNodePreferredInstances: ""
-    gpuCleanupTimeoutSeconds: 120
-    # Shared secret required on the MarkGPUCleaned RPC. Must match egsGpuAgent.inventoryManagerToken
-    # in the kubeslice-worker-egs chart. Left empty by default: the RPC runs unauthenticated
-    # (with a startup warning) until this is set on both sides.
-    token: ""
     resources:
       limits:
         cpu: 500m
@@ -370,9 +369,25 @@ egs:
     # Runs on the controller cluster; shares the KubeTally postgres instance credentials
     # and database (global.kubeTally.postgresSecretName).
     enabled: true
+    imageRegistry: harbor.saas1.smart-scaler.io/avesha/aveshadev
     image: egs-inference-auth-server
     tag: 1.0.2-RELEASE-33f877b0
     imagePullPolicy: IfNotPresent
+    # Cloud SQL Auth Proxy sidecar. Needed because this image builds its Postgres DSN with a
+    # hardcoded sslmode=disable, so it cannot connect to an instance that requires encryption.
+    # The proxy gives it TLS without an application change: the app talks to 127.0.0.1 inside
+    # the pod, and the proxy authenticates with IAM and encrypts everything on the wire.
+    # Enabling this also gives the deployment its own service account instead of the namespace
+    # default. Only enable this where Cloud SQL is the database.
+    cloudSqlProxy:
+      enabled: true
+      image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.18.0
+      # Project:region:instance of the Cloud SQL instance.
+      instanceConnectionName: "smartscaler:us-east4:smartscaler-saas-prod-postgres"
+      # Google service account holding roles/cloudsql.client, bound to this chart's Kubernetes
+      # service account through Workload Identity.
+      gcpServiceAccount: "egs-cloudsql-wi-sa@smartscaler.iam.gserviceaccount.com"
+      port: 5432
     service:
       type: ClusterIP
     labels:

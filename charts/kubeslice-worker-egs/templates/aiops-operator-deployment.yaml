@@ -65,7 +65,7 @@ spec:
             - --workload-reconciler-interval=30s
           command:
             - /manager
-          image: {{ include "kubeslice.image" (dict "imageRoot" .Values.aiops "global" .Values.dev) }}
+          image: {{ include "kubeslice.image" (dict "imageRoot" .Values.aiops "global" .Values.global) }}
           imagePullPolicy: {{ include "kubeslice.imagePullPolicy" (dict "pullPolicy" .Values.aiops.pullPolicy "global" .Values.global) }}
           env:
             - name: GOMEMLIMIT
@@ -116,18 +116,10 @@ spec:
               value: "true"
             - name: HELM_INSTALLER_IMAGE
               value: "{{ .Values.global.imageRegistry }}/{{ .Values.workerInstaller.image }}:{{ .Values.workerInstaller.tag }}"
-            - name: PREDICTOR_INGRESS_DOMAIN
-              value: {{ .Values.aiops.predictorIngressDomain | quote }}
-            {{- if .Values.aiops.predictorAuthUrl }}
             - name: PREDICTOR_AUTH_URL
-              value: {{ .Values.aiops.predictorAuthUrl | quote }}
-            {{- end }}
-            - name: INFERENCE_MODEL_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: inference-model-token
-                  key: token
-                  optional: true
+              value: https://inference-auth.saas1.smart-scaler.io/validate
+            - name: PREDICTOR_INGRESS_DOMAIN
+              value: inference.smartscaler.io
           livenessProbe:
             httpGet:
               path: /healthz

@@ -41,5 +41,9 @@ dependencies:
     repository: file://./charts/netop
     version: 0.2.0
     condition: kubesliceNetworking.enabled
+  - name: ingress-nginx
+    repository: file://./charts/ingress-nginx
+    version: 4.7.1
+    condition: ingress-nginx.enabled
 version: 1.18.1
 appVersion: 1.18.1

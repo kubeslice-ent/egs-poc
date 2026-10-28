@@ -208,12 +208,6 @@ spec:
                 type: string
               evictionInProgress:
                 type: boolean
-              failedNodeRecoveryAttempts:
-                default: 0
-                description: |-
-                  FailedNodeRecoveryAttempts counts how many times node pool deletion + scale-up retry was performed.
-                  When this exceeds the controller's limit, GPR is marked Failed and reconciliation stops.
-                type: integer
               failureReason:
                 type: string
               internalState:
@@ -268,7 +262,7 @@ spec:
                     cloudProvider:
                       type: string
                     clusterID:
-                      type: string
+                      type: integer
                     nodeID:
                       items:
                         type: string

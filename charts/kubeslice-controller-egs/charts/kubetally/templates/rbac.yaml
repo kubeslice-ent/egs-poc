@@ -1,0 +1,83 @@
+{{/*
+RBAC resources for kubetally services
+*/}}
+---
+# ServiceAccount for billing-service
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: billing-service
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: billing-service
+---
+# ClusterRole for billing-service configmap reader
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: billing-service-configmap-reader
+  labels:
+    app: billing-service
+rules:
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list"]
+---
+# ClusterRoleBinding for billing-service
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: billing-service-configmap-reader
+  labels:
+    app: billing-service
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: billing-service-configmap-reader
+subjects:
+- kind: ServiceAccount
+  name: billing-service
+  namespace: {{ .Release.Namespace }}
+---
+# ServiceAccount for kubetally-report
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kubetally-report
+  namespace: {{ .Release.Namespace }}
+---
+# ClusterRole for reading GPRs and ConfigMaps
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kubetally-saas-reader
+rules:
+- apiGroups: ["gpr.kubeslice.io"]
+  resources: ["gpuprovisioningrequests"]
+  verbs: ["get", "list", "watch"]
+# WorkerSliceGPRs carry per-GPR LLM token usage (status.tokenUsage)
+- apiGroups: ["worker.kubeslice.io"]
+  resources: ["workerslicegpuprovisioningrequests"]
+  verbs: ["get", "list"]
+- apiGroups: [""]
+  resources: ["namespaces"]
+  verbs: ["get", "list"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  resourceNames: ["gpu-pricing-config"]
+  verbs: ["get", "list", "watch"]
+---
+# ClusterRoleBinding for kubetally-report
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kubetally-saas-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kubetally-saas-reader
+subjects:
+- kind: ServiceAccount
+  name: kubetally-report
+  namespace: {{ .Release.Namespace }}
+

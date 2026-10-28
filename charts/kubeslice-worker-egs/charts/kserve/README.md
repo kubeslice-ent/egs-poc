@@ -9,7 +9,7 @@
 | kserve.controller.containerSecurityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true}` | Container Security Context to be set on the controller component container. For more information, see [Configure a Security Context for a Pod or Container](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/). |
 | kserve.controller.deploymentMode | string | `"Serverless"` | KServe deployment mode: "Serverless", "RawDeployment". |
 | kserve.controller.gateway.additionalIngressDomains | list | `[]` | Optional additional domains for ingress routing. |
-| kserve.controller.gateway.disableIngressCreation | bool | `false` | Whether to disable ingress creation for RawDeployment mode. |
+| kserve.controller.gateway.disableIngressCreation | bool | `true` | Whether to disable ingress creation for RawDeployment mode. Must stay true so kube-aiops-operator (not KServe) creates the auth-annotated Ingress for inference endpoints. |
 | kserve.controller.gateway.disableIstioVirtualHost | bool | `false` | DisableIstioVirtualHost controls whether to use istio as network layer for top level component routing or path based routing. This configuration is only applicable for Serverless mode, when disabled Istio is no longer required. |
 | kserve.controller.gateway.domain | string | `"example.com"` | Ingress domain for RawDeployment mode, for Serverless it is configured in Knative. |
 | kserve.controller.gateway.domainTemplate | string | `"{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}"` | Ingress domain template for RawDeployment mode, for Serverless mode it is configured in Knative. |

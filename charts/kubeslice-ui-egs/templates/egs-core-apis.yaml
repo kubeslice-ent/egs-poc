@@ -5,6 +5,10 @@ kind: ServiceAccount
 metadata:
   name: egs-core-apis
   namespace: {{ .Release.Namespace }}
+  {{- if .Values.kubeslice.egsCoreApis.cloudSqlProxy.enabled }}
+  annotations:
+    iam.gke.io/gcp-service-account: {{ .Values.kubeslice.egsCoreApis.cloudSqlProxy.gcpServiceAccount | quote }}
+  {{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -95,6 +99,44 @@ spec:
       affinity:
       {{ toYaml .Values.kubeslice.egsCoreApis.affinity | nindent 8 }}
       {{- end }}
+      {{- with .Values.kubeslice.egsCoreApis.cloudSqlProxy }}
+      {{- if .enabled }}
+      # Native sidecar: Kubernetes starts it before the app container and keeps it running for
+      # the pod's lifetime. The app reaches Postgres over loopback, so the credentials and query
+      # traffic never leave the pod unencrypted, and the proxy does TLS out to Cloud SQL.
+      initContainers:
+        - name: cloud-sql-proxy
+          image: {{ .image }}
+          restartPolicy: Always
+          args:
+            - --private-ip
+            - --port={{ .port | default 5432 }}
+            - --health-check
+            - --http-address=0.0.0.0
+            - --http-port=9801
+            - --structured-logs
+            - {{ .instanceConnectionName | quote }}
+          startupProbe:
+            httpGet:
+              path: /startup
+              port: 9801
+            periodSeconds: 2
+            timeoutSeconds: 5
+            failureThreshold: 30
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi
+      {{- end }}
+      {{- end }}
       containers:
         - name: egs-core-apis
           securityContext:
@@ -116,10 +158,14 @@ spec:
             - name: EGS_CORE_APIS_EGS_API_GATEWAY_ENDPOINT
               value: "http://kubeslice-api-gw:8080/"
             - name: DATABASE_ADDR
+              {{- if .Values.kubeslice.egsCoreApis.cloudSqlProxy.enabled }}
+              value: "127.0.0.1"
+              {{- else }}
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.kubeslice.egsCoreApis.database.secretName }}
                   key: postgresAddr
+              {{- end }}
             - name: DATABASE_PORT
               valueFrom:
                 secretKeyRef:
@@ -140,6 +186,22 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.kubeslice.egsCoreApis.database.secretName }}
                   key: postgresPassword
+            # The binary ignores this: it builds its DSN with a hardcoded sslmode=disable and
+            # contains no reference to DATABASE_SSL_MODE. Kept for when that is fixed upstream.
+            # Encryption in transit comes from the cloud-sql-proxy sidecar instead.
+            - name: DATABASE_SSL_MODE
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.kubeslice.egsCoreApis.database.secretName }}
+                  key: postgresSslmode
+            - name: EGS_IDLE_TIMEOUT_DURATION
+              value: "60m"
+            - name: EGS_ENFORCE_IDLE_TIMEOUT
+              value: "true"
+            - name: DYNAMIC_GPU_NODE
+              value: "false"
+            - name: INFERENCE_MODEL_TOKEN
+              value: {{ .Values.kubeslice.egsCoreApis.inferenceModelToken | default "" | quote }}
           ports:
             - containerPort: 8080
           image: {{ include "component.image" (dict "component" .Values.kubeslice.egsCoreApis "global" .Values.global "context" .) }}

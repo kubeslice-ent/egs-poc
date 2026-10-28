@@ -1,4 +1,17 @@
 {{- if .Values.egs.inferenceAuthServer.enabled }}
+{{- if .Values.egs.inferenceAuthServer.cloudSqlProxy.enabled }}
+# The deployment ran under the namespace default service account until now. The proxy needs an
+# identity of its own, so that granting it Cloud SQL access does not grant it to every other
+# workload that happens to use the default account.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: egs-inference-auth-server
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    iam.gke.io/gcp-service-account: {{ .Values.egs.inferenceAuthServer.cloudSqlProxy.gcpServiceAccount | quote }}
+---
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -37,9 +50,48 @@ spec:
       affinity:
       {{ toYaml .Values.egs.inferenceAuthServer.affinity | nindent 8 }}
       {{- end }}
+      {{- with .Values.egs.inferenceAuthServer.cloudSqlProxy }}
+      {{- if .enabled }}
+      serviceAccountName: egs-inference-auth-server
+      # Native sidecar: Kubernetes starts it before the app container and keeps it running for
+      # the pod's lifetime. The app reaches Postgres over loopback, so the credentials and query
+      # traffic never leave the pod unencrypted, and the proxy does TLS out to Cloud SQL.
+      initContainers:
+        - name: cloud-sql-proxy
+          image: {{ .image }}
+          restartPolicy: Always
+          args:
+            - --private-ip
+            - --port={{ .port | default 5432 }}
+            - --health-check
+            - --http-address=0.0.0.0
+            - --http-port=9801
+            - --structured-logs
+            - {{ .instanceConnectionName | quote }}
+          startupProbe:
+            httpGet:
+              path: /startup
+              port: 9801
+            periodSeconds: 2
+            timeoutSeconds: 5
+            failureThreshold: 30
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi
+      {{- end }}
+      {{- end }}
       containers:
         - name: egs-inference-auth-server
-          image: {{ include "kubeslice.image" (dict "image" .Values.egs.inferenceAuthServer.image "tag" .Values.egs.inferenceAuthServer.tag "registry" .Values.dev.imageRegistry) }}
+          image: {{ include "kubeslice.image" (dict "image" .Values.egs.inferenceAuthServer.image "tag" .Values.egs.inferenceAuthServer.tag "registry" (.Values.egs.inferenceAuthServer.imageRegistry | default .Values.global.imageRegistry)) }}
           imagePullPolicy: "{{ .Values.egs.inferenceAuthServer.imagePullPolicy }}"
           {{- if .Values.egs.inferenceAuthServer.containerSecurityContext }}
           securityContext:
@@ -52,10 +104,14 @@ spec:
             # DB host/port/user/name/password are all shared with KubeTally via
             # the same postgres instance credentials secret.
             - name: DATABASE_ADDR
+              {{- if .Values.egs.inferenceAuthServer.cloudSqlProxy.enabled }}
+              value: "127.0.0.1"
+              {{- else }}
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.global.kubeTally.postgresSecretName | default "kubetally-db-credentials" }}
                   key: postgresAddr
+              {{- end }}
             - name: DATABASE_PORT
               valueFrom:
                 secretKeyRef:
@@ -76,6 +132,14 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.global.kubeTally.postgresSecretName | default "kubetally-db-credentials" }}
                   key: postgresDB
+            # The binary ignores this: it builds its DSN with a hardcoded sslmode=disable and
+            # contains no reference to DATABASE_SSL_MODE. Kept for when that is fixed upstream.
+            # Encryption in transit comes from the cloud-sql-proxy sidecar instead.
+            - name: DATABASE_SSL_MODE
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.kubeTally.postgresSecretName | default "kubetally-db-credentials" }}
+                  key: postgresSslmode
           ports:
             - containerPort: 8080
       securityContext:

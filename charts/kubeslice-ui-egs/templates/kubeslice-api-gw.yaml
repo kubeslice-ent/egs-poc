@@ -1,3 +1,5 @@
+{{- $database := .Values.kubeslice.apigw.workloadEndpointDatabase | default dict -}}
+{{- $proxy := $database.cloudSqlProxy | default dict -}}
 ---
 apiVersion: v1
 kind: Service
@@ -60,14 +62,88 @@ spec:
       affinity:
       {{ toYaml .Values.kubeslice.apigw.affinity | nindent 8 }}
       {{- end }}
+      {{- if and $database.enabled $proxy.enabled }}
+      # Match the auth-server chart's native sidecar: start before the gateway.
+      initContainers:
+        - name: cloud-sql-proxy
+          image: {{ required "workloadEndpointDatabase.cloudSqlProxy.image is required" $proxy.image | quote }}
+          restartPolicy: Always
+          args:
+            - --private-ip
+            - --port={{ $proxy.port | default 5432 }}
+            - --health-check
+            - --http-address=0.0.0.0
+            - --http-port=9801
+            - --structured-logs
+            - {{ required "workloadEndpointDatabase.cloudSqlProxy.instanceConnectionName is required" $proxy.instanceConnectionName | quote }}
+          startupProbe:
+            httpGet:
+              path: /startup
+              port: 9801
+            periodSeconds: 2
+            timeoutSeconds: 5
+            failureThreshold: 30
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi
+      {{- end }}
       containers:
-        - image: {{ include "component.image" (dict "component" .Values.kubeslice.apigw "global" .Values.dev "context" .) }}
+        - image: {{ include "component.image" (dict "component" .Values.kubeslice.apigw "global" .Values.global "context" .) }}
           imagePullPolicy: {{ include "component.imagePullPolicy" (dict "component" .Values.kubeslice.apigw "global" .Values.global "context" .) }}
           env:
+            {{- if $database.enabled }}
+            {{- $secret := required "workloadEndpointDatabase.existingSecret is required" $database.existingSecret }}
+            - name: DATABASE_ADDR
+              {{- if $proxy.enabled }}
+              value: "127.0.0.1"
+              {{- else }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secret | quote }}
+                  key: postgresAddr
+              {{- end }}
+            - name: DATABASE_PORT
+              {{- if $proxy.enabled }}
+              value: {{ $proxy.port | default 5432 | quote }}
+              {{- else }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secret | quote }}
+                  key: postgresPort
+              {{- end }}
+            - name: DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secret | quote }}
+                  key: postgresUser
+            - name: DATABASE_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secret | quote }}
+                  key: postgresPassword
+            - name: DATABASE_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secret | quote }}
+                  key: postgresDB
+            {{- end }}
             {{- if .Values.kubeslice.apigw.env }}
             {{- range .Values.kubeslice.apigw.env }}
             - name: {{ .name }}
-              value: {{ .value }}
+              {{- if hasKey . "valueFrom" }}
+              valueFrom: {{ toYaml .valueFrom | nindent 16 }}
+              {{- else }}
+              value: {{ .value | quote }}
+              {{- end }}
             {{- end }}
             {{- end }}
             - name: KUBESLICE_METRIC_JOB_VALUE
@@ -96,37 +172,6 @@ spec:
               value: {{ .Values.egs.QueueManagerAddress }}
             - name: CORE_APIS_ENDPOINT
               value: {{ .Values.egs.CoreApisUrl }}
-          {{- if .Values.kubeslice.apigw.workloadEndpointDatabase.enabled }}
-            # Credential store for token-protected custom workload endpoints (workload-placement ingress).
-            # Reuses the inference credential database; see mesh-api-gateway-ent-egs/docs/workload-endpoints.md.
-            - name: DATABASE_ADDR
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.kubeslice.apigw.workloadEndpointDatabase.secretName }}
-                  key: postgresAddr
-            - name: DATABASE_PORT
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.kubeslice.apigw.workloadEndpointDatabase.secretName }}
-                  key: postgresPort
-            - name: DATABASE_NAME
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.kubeslice.apigw.workloadEndpointDatabase.secretName }}
-                  key: postgresDB
-            - name: DATABASE_USER
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.kubeslice.apigw.workloadEndpointDatabase.secretName }}
-                  key: postgresUser
-            - name: DATABASE_PASS
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.kubeslice.apigw.workloadEndpointDatabase.secretName }}
-                  key: postgresPassword
-            - name: DATABASE_SSL
-              value: {{ .Values.kubeslice.apigw.workloadEndpointDatabase.ssl | quote }}
-          {{- end }}
             - name: CONTROLLER_PROMETHEUS_TLS_ENABLED
               value: {{ .Values.egs.ControllerPrometheusTlsEnabled | quote   }}
           {{- if eq .Values.egs.ControllerPrometheusTlsEnabled "true" }}

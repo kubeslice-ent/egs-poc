@@ -3,8 +3,10 @@
 # Only define global values here if you need subchart-specific overrides
 kubetally:
   pricingService:
+    # Component registry override; other images use global.imageRegistry.
+    imageRegistry: harbor.saas1.smart-scaler.io/avesha/aveshadev
     image: pricing-service
-    tag: 1.14.0
+    tag: 1.15.0-RELEASE-2efc152a
     imagePullPolicy: IfNotPresent
     labels:
       app: pricing-service
@@ -80,9 +82,26 @@ kubetally:
         type: RuntimeDefault
 
   kubeTallyReport:
+    # Component registry override; other images use global.imageRegistry.
+    imageRegistry: harbor.saas1.smart-scaler.io/avesha/aveshadev
     image: kubetally-report
-    tag: 1.14.0
+    tag: 1.15.0-RELEASE-a9f0dbe1
     imagePullPolicy: IfNotPresent
+    serviceAccountName: kubetally-report
+    # BILLING_MODE: "saas" polls GPU Provisioning Requests every 60s and writes
+    # per-minute usage to saas_billing_records (what billing-service reports to
+    # Stripe). "prometheus" runs the legacy chargeback/utilization pipeline instead.
+    billingMode: saas
+    # Where LLM token usage per GPR comes from. "workerslicegpr" (default): the totals
+    # kube-aiops-operator publishes on each WorkerSliceGPR. "prometheus": the
+    # kubeslice_controller_llm_* metrics the kubeslice controller exports from the workers' usage
+    # reports, the same way as kubeslice_controller_gpu_utilization, read from the controller's
+    # Prometheus (prometheusEndpoint, default: global.kubeTally.prometheusUrl). since (RFC 3339) is
+    # the first minute recorded that way.
+    tokenUsage:
+      source: workerslicegpr
+      prometheusEndpoint: ""
+      since: ""
     labels:
       app: report-service
     annotations: {}
@@ -124,6 +143,70 @@ kubetally:
         #         matchExpressions:
         #           - key: "node.kubernetes.io/gpu"
         #             operator: "DoesNotExist"
+  # imagePullSecretName is automatically inherited from parent chart's global.imagePullSecrets.name
+  # Only specify this if you need a subchart-specific override
+  # imagePullSecretName: "custom-subchart-secret"
+  billingService:
+    enabled: true                  # set false to skip the billing-service Deployment and Service
+    # Component registry override; other images use global.imageRegistry.
+    imageRegistry: harbor.saas1.smart-scaler.io/avesha/aveshadev
+    image: billing-service
+    tag: 1.1.0-RELEASE-18ff09ef
+    imagePullPolicy: IfNotPresent
+    replicas: 1
+    serviceAccountName: billing-service
+    labels:
+      app: billing-service
+      version: v1
+    annotations: {}
+    prometheusAnnotations:
+      scrape: "true"
+      port: "9090"
+      path: "/metrics"
+    httpPort: 8080
+    metricsPort: 9090
+    serviceHttpPort: 8080
+    serviceMetricsPort: 9090
+    serverPort: 8080
+    serverHost: "0.0.0.0"
+    environment: production
+    logLevel: info
+    logFormat: json
+    stripeApiVersion: "2025-06-30.basil"
+    stripeTimeout: "30s"
+    schedulerInterval: "5m"
+    schedulerBatchSize: "1000"
+    schedulerWindowSize: "5m"
+    secretName: billing-service-secrets
+    backendGatewayUrl: https://backend-gateway.saas1.smart-scaler.io
+    containerSecurityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+    podSecurityContext:
+      runAsNonRoot: true
+      runAsUser: 1000
+      fsGroup: 1000
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "100m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+    tolerations:
+      - operator: "Exists"
+      - key: "kubeslice.io/egs"
+        operator: "Equal"
+        value: "dedicated-node"
+        effect: "NoSchedule"
+    affinity: {}
   # imagePullSecretName is automatically inherited from parent chart's global.imagePullSecrets.name
   # Only specify this if you need a subchart-specific override
   # imagePullSecretName: "custom-subchart-secret"

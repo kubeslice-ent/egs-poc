@@ -8,8 +8,8 @@ Automatically inherits from parent chart's global values
 Usage: {{ include "kubetally.image" (dict "image" .Values.kubetally.component.image "tag" .Values.kubetally.component.tag "context" .) }}
 */}}
 {{- define "kubetally.image" -}}
-{{- $registry := "" -}}
-{{- if .context.Values.global -}}
+{{- $registry := .registry | default "" -}}
+{{- if and (not $registry) .context.Values.global -}}
 {{- $registry = .context.Values.global.imageRegistry -}}
 {{- end -}}
 {{- if $registry -}}

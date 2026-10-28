@@ -39,7 +39,7 @@ spec:
       {{ toYaml .Values.kubetally.pricingService.affinity | nindent 8 }}
       {{- end }}
       containers:
-        - image: {{ include "kubetally.image" (dict "image" .Values.kubetally.pricingService.image "tag" .Values.kubetally.pricingService.tag "context" .) }}
+        - image: {{ include "kubetally.image" (dict "image" .Values.kubetally.pricingService.image "tag" .Values.kubetally.pricingService.tag "registry" .Values.kubetally.pricingService.imageRegistry "context" .) }}
           imagePullPolicy: {{.Values.kubetally.pricingService.imagePullPolicy}}
           name: pricing-service
           securityContext:
@@ -220,6 +220,9 @@ spec:
       {{ toYaml .Values.kubetally.kubeTallyReport.labels | nindent 8 }}
       {{- end }}
     spec:
+      {{- if .Values.kubetally.kubeTallyReport.serviceAccountName }}
+      serviceAccountName: {{ .Values.kubetally.kubeTallyReport.serviceAccountName }}
+      {{- end }}
       {{- if .Values.kubetally.kubeTallyReport.tolerations }}
       tolerations: 
       {{ toYaml .Values.kubetally.kubeTallyReport.tolerations | nindent 8 }}
@@ -231,7 +234,7 @@ spec:
           {{ toYaml .Values.kubetally.kubeTallyReport.containerSecurityContext | nindent 12 }}
           {{- end }}
           imagePullPolicy: {{ .Values.kubetally.kubeTallyReport.imagePullPolicy }}
-          image: {{ include "kubetally.image" (dict "image" .Values.kubetally.kubeTallyReport.image "tag" .Values.kubetally.kubeTallyReport.tag "context" .) }}
+          image:  {{ include "kubetally.image" (dict "image" .Values.kubetally.kubeTallyReport.image "tag" .Values.kubetally.kubeTallyReport.tag "registry" .Values.kubetally.kubeTallyReport.imageRegistry "context" .) }}
           env:
             - name: APP_ENV
               value: production
@@ -273,6 +276,22 @@ spec:
               value: "{{.Values.global.kubeTally.priceUpdaterWorkers}}"
             - name: METRIC_COLLECTOR_PORT
               value: "18080"
+            - name: BILLING_MODE
+              value: {{ .Values.kubetally.kubeTallyReport.billingMode | default "saas" }}
+            {{- with .Values.kubetally.kubeTallyReport.tokenUsage }}
+            {{- if eq (.source | default "workerslicegpr") "prometheus" }}
+            - name: TOKEN_USAGE_SOURCE
+              value: prometheus
+            {{- if .prometheusEndpoint }}
+            - name: TOKEN_PROMETHEUS_ENDPOINT
+              value: {{ .prometheusEndpoint | quote }}
+            {{- end }}
+            {{- if .since }}
+            - name: TOKEN_PROMETHEUS_SINCE
+              value: {{ .since | quote }}
+            {{- end }}
+            {{- end }}
+            {{- end }}
           {{- if .Values.kubetally.kubeTallyReport.resources }}
           resources: 
           {{ toYaml .Values.kubetally.kubeTallyReport.resources | nindent 12 }}
@@ -378,3 +397,250 @@ spec:
       {{- include "kubetally.imagePullSecrets" . | nindent 6 }}
       restartPolicy: Never
   ttlSecondsAfterFinished: 86400
+
+{{- if .Values.kubetally.billingService.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  {{- if .Values.kubetally.billingService.labels }}
+  labels:
+  {{ toYaml .Values.kubetally.billingService.labels | nindent 4 }}
+  {{- end }}
+  {{- if .Values.kubetally.billingService.annotations }}
+  annotations:
+  {{ toYaml .Values.kubetally.billingService.annotations | nindent 4 }}
+  {{- end }}
+  name: kubetally-billing-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: {{ .Values.kubetally.billingService.replicas | default 2 }}
+  strategy:
+    {{- if .Values.kubetally.billingService.strategy }}
+    {{ toYaml .Values.kubetally.billingService.strategy | nindent 4 }}
+    {{- else }}
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    {{- end }}
+  selector:
+    matchLabels:
+    {{- if .Values.kubetally.billingService.labels }}
+    {{ toYaml .Values.kubetally.billingService.labels | nindent 6 }}
+    {{- end }}
+  template:
+    metadata:
+      labels:
+      {{- if .Values.kubetally.billingService.labels }}
+      {{ toYaml .Values.kubetally.billingService.labels | nindent 8 }}
+      {{- end }}
+      annotations:
+      {{- if .Values.kubetally.billingService.annotations }}
+      {{ toYaml .Values.kubetally.billingService.annotations | nindent 8 }}
+      {{- end }}
+      {{- if .Values.kubetally.billingService.prometheusAnnotations }}
+        prometheus.io/scrape: "{{ .Values.kubetally.billingService.prometheusAnnotations.scrape | default "true" }}"
+        prometheus.io/port: "{{ .Values.kubetally.billingService.prometheusAnnotations.port | default "9090" }}"
+        prometheus.io/path: "{{ .Values.kubetally.billingService.prometheusAnnotations.path | default "/metrics" }}"
+      {{- end }}
+    spec:
+      {{- if .Values.kubetally.billingService.tolerations }}
+      tolerations: 
+      {{ toYaml .Values.kubetally.billingService.tolerations | nindent 8 }}
+      {{- end }}
+      {{- if .Values.kubetally.billingService.affinity }}
+      affinity:
+      {{ toYaml .Values.kubetally.billingService.affinity | nindent 8 }}
+      {{- end }}
+      {{- if .Values.kubetally.billingService.serviceAccountName }}
+      serviceAccountName: {{ .Values.kubetally.billingService.serviceAccountName }}
+      {{- end }}
+      containers:
+        - name: billing-service
+          securityContext:
+          {{- if .Values.kubetally.billingService.containerSecurityContext }} 
+          {{ toYaml .Values.kubetally.billingService.containerSecurityContext | nindent 12 }}
+          {{- end }}
+          imagePullPolicy: {{ .Values.kubetally.billingService.imagePullPolicy | default "Always" }}
+          image: {{ include "kubetally.image" (dict "image" .Values.kubetally.billingService.image "tag" .Values.kubetally.billingService.tag "registry" .Values.kubetally.billingService.imageRegistry "context" .) }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.kubetally.billingService.httpPort | default 8080 }}
+              protocol: TCP
+            - name: api
+              containerPort: 8081
+              protocol: TCP
+            - name: metrics
+              containerPort: {{ .Values.kubetally.billingService.metricsPort | default 9090 }}
+              protocol: TCP
+          env:
+            - name: STRIPE_SUCCESS_URL
+              value: "https://ui.saas1.smart-scaler.io/billing/success"
+            - name: STRIPE_CANCEL_URL
+              value: "https://ui.saas1.smart-scaler.io/billing/cancel"
+            - name: SERVER_PORT
+              value: "{{ .Values.kubetally.billingService.serverPort | default "8080" }}"
+            - name: SERVER_HOST
+              value: "{{ .Values.kubetally.billingService.serverHost | default "0.0.0.0" }}"
+            - name: SERVER_ENVIRONMENT
+              value: "{{ .Values.kubetally.billingService.environment | default "production" }}"
+            - name: LOG_LEVEL
+              value: "{{ .Values.kubetally.billingService.logLevel | default "info" }}"
+            - name: LOG_FORMAT
+              value: "{{ .Values.kubetally.billingService.logFormat | default "json" }}"
+            - name: POSTGRES_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.kubeTally.postgresSecretName | default "kubetally-db-credentials" }}
+                  key: postgresAddr
+            - name: POSTGRES_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.kubeTally.postgresSecretName | default "kubetally-db-credentials" }}
+                  key: postgresPort
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.kubeTally.postgresSecretName | default "kubetally-db-credentials" }}
+                  key: postgresUser
+            - name: POSTGRES_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.kubeTally.postgresSecretName | default "kubetally-db-credentials" }}
+                  key: postgresDB
+            - name: POSTGRES_SSL_MODE
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.kubeTally.postgresSecretName | default "kubetally-db-credentials" }}
+                  key: postgresSslmode
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.kubeTally.postgresSecretName | default "kubetally-db-credentials" }}
+                  key: postgresPassword
+            - name: ENV
+              value: "production"
+            - name: MYSQL_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: MYSQL_USERNAME
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: MYSQL_PASSWORD
+            - name: MYSQL_HOSTNAME
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: MYSQL_HOSTNAME
+            - name: MYSQL_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: MYSQL_PORT
+            - name: MYSQL_DBNAME
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: MYSQL_DBNAME
+            - name: STRIPE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.kubetally.billingService.secretName | default "billing-service-secrets" }}
+                  key: STRIPE_API_KEY
+            - name: STRIPE_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.kubetally.billingService.secretName | default "billing-service-secrets" }}
+                  key: STRIPE_WEBHOOK_SECRET
+            - name: STRIPE_API_VERSION
+              value: "{{ .Values.kubetally.billingService.stripeApiVersion | default "2025-06-30.basil" }}"
+            - name: STRIPE_TIMEOUT
+              value: "{{ .Values.kubetally.billingService.stripeTimeout | default "30s" }}"
+            - name: SCHEDULER_INTERVAL
+              value: "{{ .Values.kubetally.billingService.schedulerInterval | default "5m" }}"
+            - name: SCHEDULER_BATCH_SIZE
+              value: "{{ .Values.kubetally.billingService.schedulerBatchSize | default "1000" }}"
+            - name: SCHEDULER_WINDOW_SIZE
+              value: "{{ .Values.kubetally.billingService.schedulerWindowSize | default "5m" }}"
+            - name: BACKEND_GATEWAY_URL
+              value: "{{ .Values.kubetally.billingService.backendGatewayUrl }}"
+          {{- if .Values.kubetally.billingService.resources }}
+          resources: 
+          {{ toYaml .Values.kubetally.billingService.resources | nindent 12 }}
+          {{- end }}
+          {{- if .Values.kubetally.billingService.livenessProbe }}
+          livenessProbe:
+          {{ toYaml .Values.kubetally.billingService.livenessProbe | nindent 12 }}
+          {{- else }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8081
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          {{- end }}
+          {{- if .Values.kubetally.billingService.readinessProbe }}
+          readinessProbe:
+          {{ toYaml .Values.kubetally.billingService.readinessProbe | nindent 12 }}
+          {{- else }}
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8081
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          {{- end }}
+      securityContext:
+      {{- if .Values.kubetally.billingService.podSecurityContext }}
+      {{ toYaml .Values.kubetally.billingService.podSecurityContext | nindent 8 }}
+      {{- else }}
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      {{- end }}
+      {{- include "kubetally.imagePullSecrets" . | nindent 6 }}
+
+---
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    {{- if .Values.kubetally.billingService.serviceLabels }}
+    {{ toYaml .Values.kubetally.billingService.serviceLabels | nindent 4 }}
+    {{- else }}
+    app: billing-service
+    {{- end }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  name: kubetally-billing-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - name: webhook
+    port: {{ .Values.kubetally.billingService.serviceHttpPort | default 8080 }}
+    protocol: TCP
+    targetPort: {{ .Values.kubetally.billingService.httpPort | default 8080 }}
+  - name: api
+    port: 8081
+    protocol: TCP
+    targetPort: 8081
+  - name: metrics
+    port: {{ .Values.kubetally.billingService.serviceMetricsPort | default 9090 }}
+    protocol: TCP
+    targetPort: {{ .Values.kubetally.billingService.metricsPort | default 9090 }}
+  selector:
+    {{- if .Values.kubetally.billingService.labels }}
+    {{ toYaml .Values.kubetally.billingService.labels | nindent 4 }}
+    {{- else }}
+    app: billing-service
+    {{- end }}
+
+{{- end }}
