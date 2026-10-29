@@ -184,6 +184,13 @@ rules:
   - watch
   - patch
   - update
+# Needed for SliceConfig owner refs (blockOwnerDeletion) on OpenShift
+- apiGroups:
+  - controller.kubeslice.io
+  resources:
+  - sliceconfigs/finalizers
+  verbs:
+  - update
 # Workload endpoint gateway: one SliceNSGateway per protected-ingress WorkloadPlacement
 - apiGroups:
   - controller.kubeslice.io
