@@ -1,0 +1,43 @@
+# Jekyll configuration for GitHub Pages
+# Using minima theme with custom layout that removes navigation
+theme: minima
+title: "EGS Installer Script"
+description: "Streamline installation, upgrade, and configuration of EGS components in Kubernetes clusters"
+url: "https://repo.egs.avesha.io"
+baseurl: ""
+
+# GitHub repository info
+github:
+  repository_url: "https://github.com/kubeslice-ent/egs-installation"
+  repository_name: "egs-installation"
+
+# Disable header pages/navigation
+header_pages: []
+
+# Enable plugins
+plugins:
+  - jekyll-seo-tag
+
+# Markdown settings
+markdown: kramdown
+highlighter: rouge
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+
+# Exclude files from Jekyll processing
+exclude:
+  - vendor/
+  - Gemfile.lock
+  - node_modules/
+  - "*.log"
+  - "*.tgz"
+  - charts/
+  - installation-files/
+  - "*.kubeconfig"
+  - "*-kubeconfig.yaml"
+
+# Include these folders for GitHub Pages processing
+include:
+  - docs/
+  - _layouts/
