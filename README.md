@@ -1,6 +1,6 @@
 # 🌐 EGS Installer
 
-> ### **[🚀 EGS Installer Documentation](https://repo.egs.avesha.io/) 🚀**
+> ### **[🚀 EGS Installer Documentation](https://repo.egs-poc.avesha.io/) 🚀**
 > *The online documentation provides enhanced navigation, better formatting, and the latest updates.*
 
 ---
@@ -90,8 +90,8 @@ Confirm administrative access to target clusters with appropriate `kubeconfig` f
 #### 4. 📂 Clone Repository
 
 ```bash
-git clone https://github.com/kubeslice-ent/egs-installation
-cd egs-installation
+git clone https://github.com/kubeslice-ent/egs-poc
+cd egs-poc
 ```
 
 #### 5. 🔗 KubeSlice Networking (Optional)
@@ -137,7 +137,7 @@ For clusters with namespace policies:
 ### Basic Installation
 
 ```bash
-curl -fsSL https://repo.egs.avesha.io/install-egs.sh | bash -s -- \
+curl -fsSL https://repo.egs-poc.avesha.io/install-egs.sh | bash -s -- \
   --license-file egs-license.yaml --kubeconfig ~/.kube/config
 ```
 
@@ -145,7 +145,7 @@ curl -fsSL https://repo.egs.avesha.io/install-egs.sh | bash -s -- \
 
 | Scenario | Command |
 |----------|---------|
-| **Single-cluster (full)** | `curl -fsSL https://repo.egs.avesha.io/install-egs.sh \| bash -s -- --license-file egs-license.yaml --kubeconfig ~/.kube/config` |
+| **Single-cluster (full)** | `curl -fsSL https://repo.egs-poc.avesha.io/install-egs.sh \| bash -s -- --license-file egs-license.yaml --kubeconfig ~/.kube/config` |
 | **Preview config (no install)** | Add `--generate-config` (alias `--dry-run`) to generate `egs-installer-config.yaml` and exit before any cluster change |
 | **Skip prerequisites** | Add `--skip-postgresql --skip-prometheus --skip-gpu-operator` |
 | **Multi-cluster** | Add `--controller-kubeconfig <ctrl.yaml> --worker-kubeconfig <wkr.yaml>` |
@@ -676,16 +676,16 @@ After logging in, you'll have access to the following screens. **Click on any sc
 
 | 🖼️ Screenshot | Description | Click to View |
 |---------------|-------------|---------------|
-| 🔐 **Login Page** | Enter your service account token to access EGS | <details><summary>👁️ <u>View Screenshot</u></summary><br><img src="https://repo.egs.avesha.io/docs/images/01-egs-login.png" alt="EGS Login Page" width="100%"></details> |
-| 📊 **Dashboard Overview** | GPU allocation and utilization at a glance | <details><summary>👁️ <u>View Screenshot</u></summary><br><img src="https://repo.egs.avesha.io/docs/images/02-dashboard-overview.png" alt="Dashboard Overview" width="100%"></details> |
-| 💰 **Cost Analysis** | GPU cost breakdown and utilization costs | <details><summary>👁️ <u>View Screenshot</u></summary><br><img src="https://repo.egs.avesha.io/docs/images/03-dashboard-cost-analysis.png" alt="Cost Analysis" width="100%"></details> |
-| 🔧 **GPU Health** | Power usage, temperature, and memory trends | <details><summary>👁️ <u>View Screenshot</u></summary><br><img src="https://repo.egs.avesha.io/docs/images/04-dashboard-gpu-health.png" alt="GPU Infrastructure Health" width="100%"></details> |
-| 📈 **Metrics** | Workspace metrics and cluster visualization | <details><summary>👁️ <u>View Screenshot</u></summary><br><img src="https://repo.egs.avesha.io/docs/images/05-dashboard-metrics.png" alt="Dashboard Metrics" width="100%"></details> |
-| 🖥️ **Clusters** | Registered clusters with status and health | <details><summary>👁️ <u>View Screenshot</u></summary><br><img src="https://repo.egs.avesha.io/docs/images/06-clusters.png" alt="Clusters" width="100%"></details> |
-| 📦 **Inventory** | Managed GPU nodes across clusters | <details><summary>👁️ <u>View Screenshot</u></summary><br><img src="https://repo.egs.avesha.io/docs/images/07-inventory.png" alt="Inventory" width="100%"></details> |
-| 🗂️ **Workspaces** | Application workspaces and configurations | <details><summary>👁️ <u>View Screenshot</u></summary><br><img src="https://repo.egs.avesha.io/docs/images/08-workspaces.png" alt="Workspaces" width="100%"></details> |
-| 👥 **RBAC** | Role-based access control for workspaces | <details><summary>👁️ <u>View Screenshot</u></summary><br><img src="https://repo.egs.avesha.io/docs/images/09-rbac.png" alt="RBAC" width="100%"></details> |
-| 📋 **Resource Quotas** | Workspace resource limits and allocations | <details><summary>👁️ <u>View Screenshot</u></summary><br><img src="https://repo.egs.avesha.io/docs/images/10-resource-quotas.png" alt="Resource Quotas" width="100%"></details> |
+| 🔐 **Login Page** | Enter your service account token to access EGS | <details><summary>👁️ <u>View Screenshot</u></summary><br><img src="https://repo.egs-poc.avesha.io/docs/images/01-egs-login.png" alt="EGS Login Page" width="100%"></details> |
+| 📊 **Dashboard Overview** | GPU allocation and utilization at a glance | <details><summary>👁️ <u>View Screenshot</u></summary><br><img src="https://repo.egs-poc.avesha.io/docs/images/02-dashboard-overview.png" alt="Dashboard Overview" width="100%"></details> |
+| 💰 **Cost Analysis** | GPU cost breakdown and utilization costs | <details><summary>👁️ <u>View Screenshot</u></summary><br><img src="https://repo.egs-poc.avesha.io/docs/images/03-dashboard-cost-analysis.png" alt="Cost Analysis" width="100%"></details> |
+| 🔧 **GPU Health** | Power usage, temperature, and memory trends | <details><summary>👁️ <u>View Screenshot</u></summary><br><img src="https://repo.egs-poc.avesha.io/docs/images/04-dashboard-gpu-health.png" alt="GPU Infrastructure Health" width="100%"></details> |
+| 📈 **Metrics** | Workspace metrics and cluster visualization | <details><summary>👁️ <u>View Screenshot</u></summary><br><img src="https://repo.egs-poc.avesha.io/docs/images/05-dashboard-metrics.png" alt="Dashboard Metrics" width="100%"></details> |
+| 🖥️ **Clusters** | Registered clusters with status and health | <details><summary>👁️ <u>View Screenshot</u></summary><br><img src="https://repo.egs-poc.avesha.io/docs/images/06-clusters.png" alt="Clusters" width="100%"></details> |
+| 📦 **Inventory** | Managed GPU nodes across clusters | <details><summary>👁️ <u>View Screenshot</u></summary><br><img src="https://repo.egs-poc.avesha.io/docs/images/07-inventory.png" alt="Inventory" width="100%"></details> |
+| 🗂️ **Workspaces** | Application workspaces and configurations | <details><summary>👁️ <u>View Screenshot</u></summary><br><img src="https://repo.egs-poc.avesha.io/docs/images/08-workspaces.png" alt="Workspaces" width="100%"></details> |
+| 👥 **RBAC** | Role-based access control for workspaces | <details><summary>👁️ <u>View Screenshot</u></summary><br><img src="https://repo.egs-poc.avesha.io/docs/images/09-rbac.png" alt="RBAC" width="100%"></details> |
+| 📋 **Resource Quotas** | Workspace resource limits and allocations | <details><summary>👁️ <u>View Screenshot</u></summary><br><img src="https://repo.egs-poc.avesha.io/docs/images/10-resource-quotas.png" alt="Resource Quotas" width="100%"></details> |
 
 ---
 
@@ -821,7 +821,7 @@ cluster_registration:
 export KUBECONFIG_PATH="~/.kube/config"      # Path to your kubeconfig file
 
 # ============ GENERATE THE BUNDLE ============
-curl -fsSL https://repo.egs.avesha.io/egs-troubleshoot.sh | bash -s -- \
+curl -fsSL https://repo.egs-poc.avesha.io/egs-troubleshoot.sh | bash -s -- \
   --kubeconfig $KUBECONFIG_PATH
 ```
 
@@ -829,7 +829,7 @@ curl -fsSL https://repo.egs.avesha.io/egs-troubleshoot.sh | bash -s -- \
 
 | Scenario | Command |
 |----------|---------|
-| **Basic bundle** | `curl -fsSL https://repo.egs.avesha.io/egs-troubleshoot.sh \| bash -s -- --kubeconfig $KUBECONFIG_PATH` |
+| **Basic bundle** | `curl -fsSL https://repo.egs-poc.avesha.io/egs-troubleshoot.sh \| bash -s -- --kubeconfig $KUBECONFIG_PATH` |
 | **With cluster name** | Add `--cluster-name "my-cluster"` |
 | **Skip logs (faster)** | Add `--skip-logs` |
 | **Upload to S3** | Add `--s3-bucket support-bucket --s3-region us-east-1` |

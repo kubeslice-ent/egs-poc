@@ -3,13 +3,13 @@
 theme: minima
 title: "EGS Installer Script"
 description: "Streamline installation, upgrade, and configuration of EGS components in Kubernetes clusters"
-url: "https://repo.egs.avesha.io"
+url: "https://repo.egs-poc.avesha.io"
 baseurl: ""
 
 # GitHub repository info
 github:
-  repository_url: "https://github.com/kubeslice-ent/egs-installation"
-  repository_name: "egs-installation"
+  repository_url: "https://github.com/kubeslice-ent/egs-poc"
+  repository_name: "egs-poc"
 
 # Disable header pages/navigation
 header_pages: []

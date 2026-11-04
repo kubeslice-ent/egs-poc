@@ -44,7 +44,7 @@ The EGS Troubleshooting script (`egs-troubleshoot.sh`) provides a **one-command 
 export KUBECONFIG_PATH="~/.kube/config"      # Path to your kubeconfig file
 
 # ============ GENERATE THE BUNDLE ============
-curl -fsSL https://repo.egs.avesha.io/egs-troubleshoot.sh | bash -s -- \
+curl -fsSL https://repo.egs-poc.avesha.io/egs-troubleshoot.sh | bash -s -- \
   --kubeconfig $KUBECONFIG_PATH
 ```
 
@@ -210,7 +210,7 @@ export KUBECONFIG_PATH="~/.kube/config"      # Path to your kubeconfig file
 export CLUSTER_NAME="my-cluster"             # Name for your cluster (optional)
 
 # ============ GENERATE THE BUNDLE ============
-curl -fsSL https://repo.egs.avesha.io/egs-troubleshoot.sh | bash -s -- \
+curl -fsSL https://repo.egs-poc.avesha.io/egs-troubleshoot.sh | bash -s -- \
   --kubeconfig $KUBECONFIG_PATH \
   --cluster-name $CLUSTER_NAME
 ```
@@ -227,7 +227,7 @@ export CONTROLLER_KUBECONFIG="~/.kube/controller-kubeconfig.yaml"   # Controller
 export CONTROLLER_NAME="egs-controller"                              # Controller cluster name
 
 # ============ GENERATE THE BUNDLE ============
-curl -fsSL https://repo.egs.avesha.io/egs-troubleshoot.sh | bash -s -- \
+curl -fsSL https://repo.egs-poc.avesha.io/egs-troubleshoot.sh | bash -s -- \
   --kubeconfig $CONTROLLER_KUBECONFIG \
   --cluster-name $CONTROLLER_NAME
 ```
@@ -246,7 +246,7 @@ export WORKER1_KUBECONFIG="~/.kube/worker1-kubeconfig.yaml"   # Worker 1 kubecon
 export WORKER1_NAME="worker-1"                                  # Worker 1 cluster name
 
 # ============ GENERATE THE BUNDLE ============
-curl -fsSL https://repo.egs.avesha.io/egs-troubleshoot.sh | bash -s -- \
+curl -fsSL https://repo.egs-poc.avesha.io/egs-troubleshoot.sh | bash -s -- \
   --kubeconfig $WORKER1_KUBECONFIG \
   --cluster-name $WORKER1_NAME
 ```
@@ -259,7 +259,7 @@ export WORKER2_KUBECONFIG="~/.kube/worker2-kubeconfig.yaml"   # Worker 2 kubecon
 export WORKER2_NAME="worker-2"                                  # Worker 2 cluster name
 
 # ============ GENERATE THE BUNDLE ============
-curl -fsSL https://repo.egs.avesha.io/egs-troubleshoot.sh | bash -s -- \
+curl -fsSL https://repo.egs-poc.avesha.io/egs-troubleshoot.sh | bash -s -- \
   --kubeconfig $WORKER2_KUBECONFIG \
   --cluster-name $WORKER2_NAME
 ```
@@ -279,17 +279,17 @@ export WORKER1_KUBECONFIG="~/.kube/worker1.yaml"          # Worker 1 kubeconfig
 export WORKER2_KUBECONFIG="~/.kube/worker2.yaml"          # Worker 2 kubeconfig
 
 # ============ CONTROLLER BUNDLE ============
-curl -fsSL https://repo.egs.avesha.io/egs-troubleshoot.sh | bash -s -- \
+curl -fsSL https://repo.egs-poc.avesha.io/egs-troubleshoot.sh | bash -s -- \
   --kubeconfig $CONTROLLER_KUBECONFIG \
   --cluster-name "controller"
 
 # ============ WORKER 1 BUNDLE ============
-curl -fsSL https://repo.egs.avesha.io/egs-troubleshoot.sh | bash -s -- \
+curl -fsSL https://repo.egs-poc.avesha.io/egs-troubleshoot.sh | bash -s -- \
   --kubeconfig $WORKER1_KUBECONFIG \
   --cluster-name "worker-1"
 
 # ============ WORKER 2 BUNDLE ============
-curl -fsSL https://repo.egs.avesha.io/egs-troubleshoot.sh | bash -s -- \
+curl -fsSL https://repo.egs-poc.avesha.io/egs-troubleshoot.sh | bash -s -- \
   --kubeconfig $WORKER2_KUBECONFIG \
   --cluster-name "worker-2"
 ```
@@ -319,7 +319,7 @@ export S3_BUCKET="my-support-bucket"         # S3 bucket name
 export S3_REGION="us-west-2"                 # S3 bucket region
 
 # ============ GENERATE AND UPLOAD ============
-curl -fsSL https://repo.egs.avesha.io/egs-troubleshoot.sh | bash -s -- \
+curl -fsSL https://repo.egs-poc.avesha.io/egs-troubleshoot.sh | bash -s -- \
   --kubeconfig $KUBECONFIG_PATH \
   --s3-bucket $S3_BUCKET \
   --s3-region $S3_REGION
@@ -339,7 +339,7 @@ export S3_REGION="us-east-1"                     # S3 bucket region
 export S3_PREFIX="customer-xyz/production/"      # S3 key prefix for organization
 
 # ============ GENERATE AND UPLOAD ============
-curl -fsSL https://repo.egs.avesha.io/egs-troubleshoot.sh | bash -s -- \
+curl -fsSL https://repo.egs-poc.avesha.io/egs-troubleshoot.sh | bash -s -- \
   --kubeconfig $KUBECONFIG_PATH \
   --s3-bucket $S3_BUCKET \
   --s3-region $S3_REGION \
@@ -360,7 +360,7 @@ export S3_REGION="us-east-1"                 # S3 bucket region
 export AWS_PROFILE_NAME="support-team"       # AWS profile name
 
 # ============ GENERATE AND UPLOAD ============
-curl -fsSL https://repo.egs.avesha.io/egs-troubleshoot.sh | bash -s -- \
+curl -fsSL https://repo.egs-poc.avesha.io/egs-troubleshoot.sh | bash -s -- \
   --kubeconfig $KUBECONFIG_PATH \
   --s3-bucket $S3_BUCKET \
   --s3-region $S3_REGION \
@@ -382,21 +382,21 @@ export WORKER1_KUBECONFIG="~/.kube/worker1.yaml"                   # Worker 1 ku
 export WORKER2_KUBECONFIG="~/.kube/worker2.yaml"                   # Worker 2 kubeconfig
 
 # ============ CONTROLLER BUNDLE ============
-curl -fsSL https://repo.egs.avesha.io/egs-troubleshoot.sh | bash -s -- \
+curl -fsSL https://repo.egs-poc.avesha.io/egs-troubleshoot.sh | bash -s -- \
   --kubeconfig $CONTROLLER_KUBECONFIG \
   --cluster-name "controller" \
   --s3-bucket $S3_BUCKET \
   --s3-region $S3_REGION
 
 # ============ WORKER 1 BUNDLE ============
-curl -fsSL https://repo.egs.avesha.io/egs-troubleshoot.sh | bash -s -- \
+curl -fsSL https://repo.egs-poc.avesha.io/egs-troubleshoot.sh | bash -s -- \
   --kubeconfig $WORKER1_KUBECONFIG \
   --cluster-name "worker-1" \
   --s3-bucket $S3_BUCKET \
   --s3-region $S3_REGION
 
 # ============ WORKER 2 BUNDLE ============
-curl -fsSL https://repo.egs.avesha.io/egs-troubleshoot.sh | bash -s -- \
+curl -fsSL https://repo.egs-poc.avesha.io/egs-troubleshoot.sh | bash -s -- \
   --kubeconfig $WORKER2_KUBECONFIG \
   --cluster-name "worker-2" \
   --s3-bucket $S3_BUCKET \
@@ -486,7 +486,7 @@ egs-troubleshoot-bundle-YYYYMMDD-HHMMSS/
 export KUBECONFIG_PATH="~/.kube/config"      # Path to your kubeconfig file
 
 # ============ GENERATE THE BUNDLE ============
-curl -fsSL https://repo.egs.avesha.io/egs-troubleshoot.sh | bash -s -- \
+curl -fsSL https://repo.egs-poc.avesha.io/egs-troubleshoot.sh | bash -s -- \
   --kubeconfig $KUBECONFIG_PATH
 ```
 
@@ -501,7 +501,7 @@ curl -fsSL https://repo.egs.avesha.io/egs-troubleshoot.sh | bash -s -- \
 export KUBECONFIG_PATH="~/.kube/config"      # Path to your kubeconfig file
 
 # ============ GENERATE THE BUNDLE ============
-curl -fsSL https://repo.egs.avesha.io/egs-troubleshoot.sh | bash -s -- \
+curl -fsSL https://repo.egs-poc.avesha.io/egs-troubleshoot.sh | bash -s -- \
   --kubeconfig $KUBECONFIG_PATH \
   --skip-logs
 ```
@@ -518,7 +518,7 @@ export KUBECONFIG_PATH="~/.kube/config"      # Path to your kubeconfig file
 export LOG_LINES="5000"                       # Number of log lines to collect
 
 # ============ GENERATE THE BUNDLE ============
-curl -fsSL https://repo.egs.avesha.io/egs-troubleshoot.sh | bash -s -- \
+curl -fsSL https://repo.egs-poc.avesha.io/egs-troubleshoot.sh | bash -s -- \
   --kubeconfig $KUBECONFIG_PATH \
   --log-lines $LOG_LINES
 ```
@@ -534,7 +534,7 @@ curl -fsSL https://repo.egs.avesha.io/egs-troubleshoot.sh | bash -s -- \
 export KUBECONFIG_PATH="~/.kube/config"      # Path to your kubeconfig file
 
 # ============ GENERATE THE BUNDLE ============
-curl -fsSL https://repo.egs.avesha.io/egs-troubleshoot.sh | bash -s -- \
+curl -fsSL https://repo.egs-poc.avesha.io/egs-troubleshoot.sh | bash -s -- \
   --kubeconfig $KUBECONFIG_PATH \
   --include-secrets
 ```
@@ -551,7 +551,7 @@ export KUBECONFIG_PATH="~/.kube/config"          # Path to your kubeconfig file
 export KUBE_CONTEXT="production-cluster"         # Kubernetes context to use
 
 # ============ GENERATE THE BUNDLE ============
-curl -fsSL https://repo.egs.avesha.io/egs-troubleshoot.sh | bash -s -- \
+curl -fsSL https://repo.egs-poc.avesha.io/egs-troubleshoot.sh | bash -s -- \
   --kubeconfig $KUBECONFIG_PATH \
   --context $KUBE_CONTEXT
 ```
@@ -568,7 +568,7 @@ export KUBECONFIG_PATH="~/.kube/config"      # Path to your kubeconfig file
 export OUTPUT_DIR="/tmp/egs-bundle"          # Custom output directory
 
 # ============ GENERATE THE BUNDLE ============
-curl -fsSL https://repo.egs.avesha.io/egs-troubleshoot.sh | bash -s -- \
+curl -fsSL https://repo.egs-poc.avesha.io/egs-troubleshoot.sh | bash -s -- \
   --kubeconfig $KUBECONFIG_PATH \
   --output-dir $OUTPUT_DIR
 ```
@@ -586,7 +586,7 @@ export EXTRA_NS_1="my-app-namespace"             # Additional namespace 1
 export EXTRA_NS_2="another-namespace"            # Additional namespace 2
 
 # ============ GENERATE THE BUNDLE ============
-curl -fsSL https://repo.egs.avesha.io/egs-troubleshoot.sh | bash -s -- \
+curl -fsSL https://repo.egs-poc.avesha.io/egs-troubleshoot.sh | bash -s -- \
   --kubeconfig $KUBECONFIG_PATH \
   --namespace $EXTRA_NS_1 \
   --namespace $EXTRA_NS_2
@@ -603,7 +603,7 @@ curl -fsSL https://repo.egs.avesha.io/egs-troubleshoot.sh | bash -s -- \
 export KUBECONFIG_PATH="~/.kube/config"      # Path to your kubeconfig file
 
 # ============ GENERATE THE BUNDLE ============
-curl -fsSL https://repo.egs.avesha.io/egs-troubleshoot.sh | bash -s -- \
+curl -fsSL https://repo.egs-poc.avesha.io/egs-troubleshoot.sh | bash -s -- \
   --kubeconfig $KUBECONFIG_PATH \
   --verbose
 ```
@@ -622,7 +622,7 @@ export S3_BUCKET="avesha-support"            # S3 bucket name
 export S3_REGION="us-east-1"                 # S3 bucket region
 
 # ============ GENERATE AND UPLOAD ============
-curl -fsSL https://repo.egs.avesha.io/egs-troubleshoot.sh | bash -s -- \
+curl -fsSL https://repo.egs-poc.avesha.io/egs-troubleshoot.sh | bash -s -- \
   --kubeconfig $KUBECONFIG_PATH \
   --cluster-name $CLUSTER_NAME \
   --s3-bucket $S3_BUCKET \
@@ -701,7 +701,7 @@ aws s3 ls s3://your-bucket/
 export KUBECONFIG_PATH="~/.kube/config"      # Path to your kubeconfig file
 
 # ============ SKIP LOGS ENTIRELY ============
-curl -fsSL https://repo.egs.avesha.io/egs-troubleshoot.sh | bash -s -- \
+curl -fsSL https://repo.egs-poc.avesha.io/egs-troubleshoot.sh | bash -s -- \
   --kubeconfig $KUBECONFIG_PATH \
   --skip-logs
 ```
@@ -714,7 +714,7 @@ export KUBECONFIG_PATH="~/.kube/config"      # Path to your kubeconfig file
 export LOG_LINES="100"                        # Reduced log lines
 
 # ============ GENERATE WITH FEWER LOGS ============
-curl -fsSL https://repo.egs.avesha.io/egs-troubleshoot.sh | bash -s -- \
+curl -fsSL https://repo.egs-poc.avesha.io/egs-troubleshoot.sh | bash -s -- \
   --kubeconfig $KUBECONFIG_PATH \
   --log-lines $LOG_LINES
 ```

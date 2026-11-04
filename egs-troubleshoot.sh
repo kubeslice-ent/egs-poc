@@ -222,27 +222,27 @@ EXAMPLES:
         --s3-bucket support-bucket --s3-region us-west-2
 
 CURL ONE-LINER:
-    curl -fsSL https://repo.egs.avesha.io/egs-troubleshoot.sh | bash -s -- [OPTIONS]
+    curl -fsSL https://repo.egs-poc.avesha.io/egs-troubleshoot.sh | bash -s -- [OPTIONS]
 
     # Example: Basic collection
-    curl -fsSL https://repo.egs.avesha.io/egs-troubleshoot.sh | bash -s -- \\
+    curl -fsSL https://repo.egs-poc.avesha.io/egs-troubleshoot.sh | bash -s -- \\
         --kubeconfig ~/.kube/config
 
     # Example: With S3 upload
-    curl -fsSL https://repo.egs.avesha.io/egs-troubleshoot.sh | bash -s -- \\
+    curl -fsSL https://repo.egs-poc.avesha.io/egs-troubleshoot.sh | bash -s -- \\
         --kubeconfig ~/.kube/config \\
         --s3-bucket my-support-bucket \\
         --s3-region us-west-2
 
     # Example: Controller cluster with S3 upload
-    curl -fsSL https://repo.egs.avesha.io/egs-troubleshoot.sh | bash -s -- \\
+    curl -fsSL https://repo.egs-poc.avesha.io/egs-troubleshoot.sh | bash -s -- \\
         --kubeconfig ~/.kube/controller-kubeconfig.yaml \\
         --cluster-name "egs-controller" \\
         --s3-bucket avesha-support-bundles \\
         --s3-region us-east-1
 
     # Note: The script is also available at:
-    # https://repo.egs.avesha.io/egs-troubleshoot.sh
+    # https://repo.egs-poc.avesha.io/egs-troubleshoot.sh
 
 EOF
 }
