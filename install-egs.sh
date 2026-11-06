@@ -81,6 +81,9 @@ PROJECT_NAME="avesha"
 # Worker endpoint overrides (array, matches order of --worker-kubeconfig)
 WORKER_ENDPOINTS=()
 
+# Worker chart OpenShift mode (global.profile.openshift): true only when --worker-openshift is given
+WORKER_OPENSHIFT="false"
+
 # Behavior flags
 GENERATE_CONFIG_ONLY="false"   # --generate-config / --dry-run: build config then exit (no install)
 PRESERVE_CONFIG="false"        # --preserve-config: reuse an existing egs-installer-config.yaml as-is
@@ -451,6 +454,8 @@ Advanced Override Options:
   --controller-endpoint URL  Override the auto-detected controller cluster API endpoint (useful for Rancher or custom API server URLs)
   --worker-endpoint URL      Override the auto-detected worker cluster API endpoint (can be specified multiple times, matches order of --worker-kubeconfig)
   --ui-service-type TYPE     Set UI proxy service type: LoadBalancer, NodePort, or ClusterIP (default: LoadBalancer)
+  --worker-openshift         Install workers in OpenShift mode (global.profile.openshift=true: SCC bindings +
+                             PROFILE_OPENSHIFT for the NSM webhook). Without it, workers use non-OpenShift mode (false)
 
 Worker Registration Mode:
   --register-worker          Register a worker cluster with controller (standalone mode)
@@ -725,6 +730,10 @@ while [[ $# -gt 0 ]]; do
         --ui-service-type)
             UI_SERVICE_TYPE="$2"
             shift 2
+            ;;
+        --worker-openshift)
+            WORKER_OPENSHIFT="true"
+            shift
             ;;
         --help|-h)
             show_help
@@ -1658,6 +1667,12 @@ for ((i=0; i<WORKER_COUNT; i++)); do
     yq eval ".kubeslice_worker_egs[$i].inline_values.global.imageRegistry = \"$IMAGE_REGISTRY\"" -i egs-installer-config.yaml
 done
 
+# Set the worker chart's OpenShift mode (global.profile.openshift): true only with --worker-openshift
+for ((i=0; i<WORKER_COUNT; i++)); do
+    yq eval ".kubeslice_worker_egs[$i].inline_values.global.profile.openshift = $WORKER_OPENSHIFT" -i egs-installer-config.yaml
+done
+print_info "Worker OpenShift mode (global.profile.openshift): $WORKER_OPENSHIFT"
+
 # Override controller endpoint if provided (useful for Rancher or custom API server URLs)
 if [ -n "$CONTROLLER_ENDPOINT" ]; then
     print_info "Overriding controller endpoint with: $CONTROLLER_ENDPOINT"
@@ -1993,6 +2008,9 @@ fi  # end: if [ "$CONFIG_PRESERVED" != "true" ] (config generation block 2)
 
 if [ "$CONFIG_PRESERVED" = "true" ]; then
     print_success "Using preserved configuration: $ORIGINAL_DIR/egs-installer-config.yaml"
+    if [ "$WORKER_OPENSHIFT" = "true" ]; then
+        print_warning "--worker-openshift ignored with --preserve-config; set kubeslice_worker_egs[].inline_values.global.profile.openshift in the config instead"
+    fi
 else
     print_success "Configuration updated successfully!"
 fi
