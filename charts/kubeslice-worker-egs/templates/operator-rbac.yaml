@@ -822,6 +822,17 @@ rules:
       - patch
       - update
       - watch
+{{- if .Values.global.profile.openshift }}
+  # lets the operator bind the kubeslice-app SCC role in slice namespaces
+  - apiGroups:
+      - rbac.authorization.k8s.io
+    resources:
+      - clusterroles
+    resourceNames:
+      - kubeslice-app-scc
+    verbs:
+      - bind
+{{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

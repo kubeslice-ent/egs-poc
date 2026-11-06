@@ -81,7 +81,7 @@ spec:
       priorityClassName: nsm-webhook-high-priority
       containers:
         - name: admission-webhook-k8s
-          image: '{{ include "admission-webhook.imageRegistry" . }}/{{ .Values.admissionWebhook.webhookImageRegistry }}:{{ .Values.admissionWebhook.webhookImageTag }}'
+          image: '{{ .Values.admissionWebhook.imageRegistry | default (include "admission-webhook.imageRegistry" .) }}/{{ .Values.admissionWebhook.webhookImageRegistry }}:{{ .Values.admissionWebhook.webhookImageTag }}'
           imagePullPolicy: IfNotPresent
           securityContext: 
           {{- if .Values.admissionWebhook.containerSecurityContext }}
@@ -117,6 +117,14 @@ spec:
               value: NSM_CONNECT_TO=tcp://nsmgr.kubeslice-system.svc.cluster.local:5001,NSM_LOG_LEVEL=TRACE,NSM_LIVENESSCHECKENABLED=false,NSM_REQUEST_TIMEOUT=60s,NSM_INITLOCALDNSCONFIG={{ .Values.nsmInitContainerUpdateDNSConfig }}
             - name: PROFILE_OPENSHIFT
               value: "{{ .Values.global.profile.openshift | default false }}"
+            {{- if .Values.global.profile.openshift }}
+            - name: NSM_SIDECAR_RESTRICTED
+              value: "true"
+            - name: NSM_INIT_CAPS
+              value: "{{ join "," .Values.sidecarCapabilities.init }}"
+            - name: NSM_CONTAINER_CAPS
+              value: "{{ join "," .Values.sidecarCapabilities.container }}"
+            {{- end }}
             - name: NSM_REGISTER_WEBHOOK_CLIENT
               value: "false"
             - name: NSM_CA_BUNDLE

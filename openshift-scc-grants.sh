@@ -42,6 +42,9 @@ grant_sa privileged prometheus-prometheus-node-exporter egs-monitoring
 # --- controller + UI (fixed UIDs 65536/1000 and fsGroup 1000) ---
 grant_group nonroot-v2 kubeslice-controller
 grant_group nonroot-v2 kubeslice-system
+# workspace gateway key job (open-cert-*) writes /work in the image root filesystem, so it must run as root;
+# under restricted-v2 it "completes" without keys and no workspace gateway pods are ever created
+grant_sa anyuid kubeslice-controller-ovpn-manager kubeslice-controller
 
 # --- worker networking: nsmgr, forwarder-kernel, netop, spire, NSM webhook (hostNetwork/hostPath/privileged) ---
 # The worker chart also creates egs-worker-privileged-scc for spire + kubeslice-system when
