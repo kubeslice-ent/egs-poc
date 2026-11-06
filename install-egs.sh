@@ -440,7 +440,8 @@ Multi-Cluster Mode Skip Flags (use these when installing on MULTIPLE clusters):
         instead of --skip-prometheus and --skip-gpu-operator
 
 Multi-Cluster Mode (Auto-detected):
-  --controller-kubeconfig PATH  Path to controller cluster kubeconfig (auto-detects multi-cluster when used with --worker-kubeconfig)
+  --controller-kubeconfig PATH  Path to controller cluster kubeconfig (auto-detects multi-cluster when used with --worker-kubeconfig;
+                                without --worker-kubeconfig, e.g. a controller-only --skip-worker run, it is used like --kubeconfig)
   --controller-context NAME     Controller cluster context (optional)
   --worker-kubeconfig PATH      Path to worker cluster kubeconfig (can be specified multiple times for multiple workers)
   --worker-context NAME         Worker cluster context (optional, can be specified multiple times, matches order of --worker-kubeconfig)
@@ -834,6 +835,27 @@ if [ "$MULTI_CLUSTER" = "true" ]; then
     # For multi-cluster, we'll use component-specific kubeconfigs later
     CURRENT_CONTEXT="multi-cluster"
 else
+    # Controller-only run (--controller-kubeconfig without --worker-kubeconfig) is single-cluster mode:
+    # target that kubeconfig instead of silently falling back to $KUBECONFIG / ~/.kube/config
+    if [ -n "$CONTROLLER_KUBECONFIG" ]; then
+        if [ ! -f "$CONTROLLER_KUBECONFIG" ]; then
+            print_error "❌ ERROR: Controller kubeconfig file not found: $CONTROLLER_KUBECONFIG"
+            exit 1
+        fi
+        if [ -n "$KUBECONFIG_PATH" ] && [ "$(realpath "$KUBECONFIG_PATH" 2>/dev/null)" != "$(realpath "$CONTROLLER_KUBECONFIG")" ]; then
+            print_error "❌ ERROR: --kubeconfig and --controller-kubeconfig point to different files. Pass only one of them."
+            exit 1
+        fi
+        if [ -n "$CONTROLLER_CONTEXT" ] && [ -n "$KUBE_CONTEXT" ] && [ "$KUBE_CONTEXT" != "$CONTROLLER_CONTEXT" ]; then
+            print_error "❌ ERROR: --context and --controller-context differ. Pass only one of them."
+            exit 1
+        fi
+        KUBECONFIG_PATH="$CONTROLLER_KUBECONFIG"
+        if [ -n "$CONTROLLER_CONTEXT" ]; then
+            KUBE_CONTEXT="$CONTROLLER_CONTEXT"
+        fi
+    fi
+
     # Single-cluster mode: Set kubeconfig if provided
     if [ -n "$KUBECONFIG_PATH" ]; then
         export KUBECONFIG="$KUBECONFIG_PATH"
