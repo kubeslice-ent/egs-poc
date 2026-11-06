@@ -720,7 +720,7 @@ curl -fsSL https://repo.egs.avesha.io/install-egs.sh | bash -s -- \
 | `--controller-endpoint URL` | Override the controller API endpoint that gets **embedded in each worker onboarding secret** (`controllerEndpoint`). Required when the controller kubeconfig server is `127.0.0.1`/`localhost` (single-node K3s/kubeadm) and workers run in another network; also useful for Rancher or custom API server URLs. See [Multi-Cluster Network Requirements](#-multi-cluster-network-requirements). | Auto-detected from kubeconfig | No |
 | `--worker-endpoint URL` | Override the auto-detected worker cluster API endpoint (can be specified multiple times, matches order of `--worker-kubeconfig`) | Auto-detected from kubeconfig | No |
 | `--ui-service-type TYPE` | Set UI proxy service type: `LoadBalancer`, `NodePort`, or `ClusterIP`. **The generated config ships `NodePort` by default** (verified on K3s/bare-metal); pass this flag to override (e.g. `LoadBalancer` on clusters with a cloud LB controller). Invalid values are rejected. | `NodePort` (from config template) | No |
-| `--worker-openshift BOOL` | Set the worker chart's OpenShift mode (`kubeslice_worker_egs[].inline_values.global.profile.openshift`) for every worker. `true` = OpenShift: the chart creates the `anyuid`/`privileged` SCC bindings for the `spire` and `kubeslice-system` service accounts and sets `PROFILE_OPENSHIFT` for the NSM webhook. `false` = non-OpenShift. Ignored with `--preserve-config`. | Value in `egs-installer-config.yaml` | No |
+| `--worker-openshift` | Install every worker in OpenShift mode (`kubeslice_worker_egs[].inline_values.global.profile.openshift: true`): the chart creates the `anyuid`/`privileged` SCC bindings for the `spire` and `kubeslice-system` service accounts and sets `PROFILE_OPENSHIFT` for the NSM webhook. **Without this flag, workers are installed in non-OpenShift mode (`false`)**, so it is required on OpenShift worker clusters. Ignored with `--preserve-config`. | Off (`false`) | Required on OpenShift |
 
 ---
 
@@ -1460,7 +1460,7 @@ The `--register-worker` feature allows you to register a worker cluster with an 
 - `--controller-endpoint URL`: Override the controller API endpoint embedded in the worker onboarding secret (`controllerEndpoint`) — set this to a routable address when the controller kubeconfig uses `127.0.0.1`/`localhost` and the worker is in another network; also useful for Rancher. **Note:** this flag is only applied when the **Controller is installed/upgraded** (it writes `kubeslice.controller.endpoint` into the controller's Helm values). In **`--register-worker`‑only** mode the controller already exists, so this flag has **no effect** — the `controllerEndpoint` minted into new worker secrets comes from the controller's existing advertised endpoint. To change it, re-run the installer against the controller with `--controller-endpoint`.
 - `--worker-endpoint URL`: Override the auto-detected worker API endpoint (can be specified multiple times)
 - `--ui-service-type TYPE`: Set UI proxy service type (`LoadBalancer`, `NodePort`, or `ClusterIP`)
-- `--worker-openshift BOOL`: Set the worker chart's OpenShift mode (`global.profile.openshift`): `true` or `false`
+- `--worker-openshift`: Install workers in OpenShift mode (`global.profile.openshift: true`). Without it, workers use non-OpenShift mode (`false`)
 - `--skip-worker`: Skip worker installation (even if `--worker-kubeconfig` is provided)
 
 ### Linode Cluster Handling
