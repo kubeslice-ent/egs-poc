@@ -928,6 +928,11 @@ fi
 
 # Copy necessary files to original directory
 print_info "Setting up installation in current directory..."
+# Remove charts left by a previous run so stale files (e.g. old CRDs) can't survive the copy.
+# Skip when the run directory is the checkout itself (--local-repo .), or we'd delete the source.
+if [ "$(cd "$REPO_SRC" && pwd -P)" != "$(cd "$ORIGINAL_DIR" && pwd -P)" ]; then
+    rm -rf "$ORIGINAL_DIR/charts"
+fi
 cp -r "$REPO_SRC/charts" "$ORIGINAL_DIR/" 2>/dev/null || {
     print_error "Failed to copy charts directory"
     exit 1
