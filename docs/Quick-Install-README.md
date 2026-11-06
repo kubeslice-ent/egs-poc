@@ -688,7 +688,7 @@ curl -fsSL https://repo.egs-poc.avesha.io/install-egs.sh | bash -s -- \
 
 | Option | Description | Default | Required |
 |--------|-------------|---------|----------|
-| `--controller-kubeconfig PATH` | Path to controller cluster kubeconfig | - | Yes (multi-cluster mode) |
+| `--controller-kubeconfig PATH` | Path to controller cluster kubeconfig. Without `--worker-kubeconfig` (e.g. a controller-only `--skip-worker` run) it is used like `--kubeconfig` | - | Yes (multi-cluster mode) |
 | `--controller-context NAME` | Controller cluster context | Auto-detected | No |
 | `--worker-kubeconfig PATH` | Path to worker cluster kubeconfig (can be specified multiple times) | - | Yes (multi-cluster mode) |
 | `--worker-context NAME` | Worker cluster context (can be specified multiple times, matches order of --worker-kubeconfig) | Auto-detected | No |
