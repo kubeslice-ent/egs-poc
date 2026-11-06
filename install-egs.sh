@@ -3,10 +3,10 @@
 # EGS Quick Installer
 # One-command installation for EGS (supports both single-cluster and multi-cluster modes)
 # Usage: 
-#   curl -fsSL https://repo.egs.avesha.io/install-egs.sh | bash
-#   curl -fsSL https://repo.egs.avesha.io/install-egs.sh | bash -s -- --license-file egs-license.yaml
-#   curl -fsSL https://repo.egs.avesha.io/install-egs.sh | bash -s -- --skip-postgresql --skip-gpu-operator
-#   curl -fsSL https://repo.egs.avesha.io/install-egs.sh | bash -s -- --controller-kubeconfig /path/to/controller-kubeconfig.yaml --worker-kubeconfig /path/to/worker-kubeconfig.yaml
+#   curl -fsSL https://repo.egs-poc.avesha.io/install-egs.sh | bash
+#   curl -fsSL https://repo.egs-poc.avesha.io/install-egs.sh | bash -s -- --license-file egs-license.yaml
+#   curl -fsSL https://repo.egs-poc.avesha.io/install-egs.sh | bash -s -- --skip-postgresql --skip-gpu-operator
+#   curl -fsSL https://repo.egs-poc.avesha.io/install-egs.sh | bash -s -- --controller-kubeconfig /path/to/controller-kubeconfig.yaml --worker-kubeconfig /path/to/worker-kubeconfig.yaml
 
 set -e
 
@@ -88,7 +88,7 @@ SKIP_DEPENDENCY_CHECK="false"  # --skip-dependency-check: bypass helm-based prer
 LOCAL_REPO=""                  # --local-repo PATH: use a local installer checkout instead of git clone
 
 # GitHub repository details
-EGS_REPO="https://github.com/kubeslice-ent/egs-installation.git"
+EGS_REPO="https://github.com/kubeslice-ent/egs-poc.git"
 EGS_BRANCH="main"
 
 # Function to print colored messages
@@ -364,7 +364,7 @@ EOF
         print_info "Next steps:"
         print_info "1. To install EGS Worker on this cluster, run:"
         cat <<EOF
-   curl -fsSL https://repo.egs.avesha.io/install-egs.sh | bash -s -- \\
+   curl -fsSL https://repo.egs-poc.avesha.io/install-egs.sh | bash -s -- \\
      --register-worker \\
      --controller-kubeconfig <controller-kubeconfig> \\
      --worker-kubeconfig <worker-kubeconfig> \\
@@ -390,7 +390,7 @@ EGS Quick Installer
 One-command installation for EGS (Enterprise GPU Scheduler)
 
 Usage:
-  curl -fsSL https://repo.egs.avesha.io/install-egs.sh | bash [OPTIONS]
+  curl -fsSL https://repo.egs-poc.avesha.io/install-egs.sh | bash [OPTIONS]
 
 Options:
   --license-file PATH        Path to EGS license file (default: egs-license.yaml in current directory)
@@ -405,7 +405,7 @@ Behavior Flags:
   --dry-run                  Same as --generate-config
   --preserve-config          Reuse an existing egs-installer-config.yaml as-is (do not regenerate/overwrite)
   --skip-dependency-check    Bypass helm-based prerequisite detection (PostgreSQL/Controller/UI checks)
-  --local-repo PATH          Use a local egs-installation checkout instead of cloning from GitHub
+  --local-repo PATH          Use a local egs-poc checkout instead of cloning from GitHub
 
 Common Skip Flags (works for both single & multi-cluster):
   --skip-postgresql          Skip PostgreSQL installation (controller only - PostgreSQL is never on workers)
@@ -465,22 +465,22 @@ Worker Registration Mode:
 
 Examples:
   # Simplest - Install EGS with license file in current directory
-  curl -fsSL https://repo.egs.avesha.io/install-egs.sh | bash
+  curl -fsSL https://repo.egs-poc.avesha.io/install-egs.sh | bash
 
   # Specify license file path
-  curl -fsSL https://repo.egs.avesha.io/install-egs.sh | bash -s -- \\
+  curl -fsSL https://repo.egs-poc.avesha.io/install-egs.sh | bash -s -- \\
     --license-file /path/to/egs-license.yaml
 
   # Skip specific components
-  curl -fsSL https://repo.egs.avesha.io/install-egs.sh | bash -s -- \\
+  curl -fsSL https://repo.egs-poc.avesha.io/install-egs.sh | bash -s -- \\
     --skip-postgresql --skip-gpu-operator
 
   # Install only Controller and UI (skip prerequisites and worker)
-  curl -fsSL https://repo.egs.avesha.io/install-egs.sh | bash -s -- \\
+  curl -fsSL https://repo.egs-poc.avesha.io/install-egs.sh | bash -s -- \\
     --skip-postgresql --skip-prometheus --skip-gpu-operator --skip-worker
 
   # Register a worker cluster with controller
-  curl -fsSL https://repo.egs.avesha.io/install-egs.sh | bash -s -- \\
+  curl -fsSL https://repo.egs-poc.avesha.io/install-egs.sh | bash -s -- \\
     --register-worker \\
     --controller-kubeconfig /path/to/controller-kubeconfig.yaml \\
     --register-cluster-name worker-2 \\
@@ -491,7 +491,7 @@ Examples:
 
   # Multi-cluster installation (Controller/UI in one cluster, Worker in another)
   # Multi-cluster mode is auto-detected when both --controller-kubeconfig and --worker-kubeconfig are provided
-  curl -fsSL https://repo.egs.avesha.io/install-egs.sh | bash -s -- \\
+  curl -fsSL https://repo.egs-poc.avesha.io/install-egs.sh | bash -s -- \\
     --controller-kubeconfig /path/to/controller-kubeconfig.yaml \\
     --controller-context controller-context \\
     --worker-kubeconfig /path/to/worker-kubeconfig.yaml \\
@@ -501,7 +501,7 @@ Examples:
     --skip-worker-prometheus --skip-worker-gpu-operator
   
   # Multi-cluster with multiple workers
-  curl -fsSL https://repo.egs.avesha.io/install-egs.sh | bash -s -- \\
+  curl -fsSL https://repo.egs-poc.avesha.io/install-egs.sh | bash -s -- \\
     --controller-kubeconfig /path/to/controller-kubeconfig.yaml \\
     --worker-kubeconfig /path/to/worker1-kubeconfig.yaml \\
     --worker-context worker1-context \\
@@ -551,7 +551,7 @@ show_license_steps() {
    # Or download the file and place it in the current directory
 
 6. Run the installer again:
-   curl -fsSL https://repo.egs.avesha.io/install-egs.sh | bash
+   curl -fsSL https://repo.egs-poc.avesha.io/install-egs.sh | bash
 
 For detailed instructions, see: https://docs.avesha.io/documentation/enterprise-egs
 
@@ -912,22 +912,27 @@ if [ -n "$LOCAL_REPO" ]; then
 else
     print_info "Downloading EGS installer..."
     cd "$TEMP_DIR"
-    if ! git clone --depth 1 --branch "$EGS_BRANCH" "$EGS_REPO" egs-installation 2>/dev/null; then
+    if ! git clone --depth 1 --branch "$EGS_BRANCH" "$EGS_REPO" egs-poc 2>/dev/null; then
         print_error "Failed to download EGS installer from branch: $EGS_BRANCH"
         print_info "Trying main branch..."
         EGS_BRANCH="main"
-        if ! git clone --depth 1 --branch "$EGS_BRANCH" "$EGS_REPO" egs-installation; then
+        if ! git clone --depth 1 --branch "$EGS_BRANCH" "$EGS_REPO" egs-poc; then
             print_error "Failed to download EGS installer"
-            print_info "Tip: if you already have a local checkout, pass --local-repo /path/to/egs-installation"
+            print_info "Tip: if you already have a local checkout, pass --local-repo /path/to/egs-poc"
             exit 1
         fi
     fi
-    REPO_SRC="$TEMP_DIR/egs-installation"
+    REPO_SRC="$TEMP_DIR/egs-poc"
     print_success "Downloaded EGS installer"
 fi
 
 # Copy necessary files to original directory
 print_info "Setting up installation in current directory..."
+# Remove charts left by a previous run so stale files (e.g. old CRDs) can't survive the copy.
+# Skip when the run directory is the checkout itself (--local-repo .), or we'd delete the source.
+if [ "$(cd "$REPO_SRC" && pwd -P)" != "$(cd "$ORIGINAL_DIR" && pwd -P)" ]; then
+    rm -rf "$ORIGINAL_DIR/charts"
+fi
 cp -r "$REPO_SRC/charts" "$ORIGINAL_DIR/" 2>/dev/null || {
     print_error "Failed to copy charts directory"
     exit 1
