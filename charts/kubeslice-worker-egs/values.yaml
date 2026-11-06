@@ -34,7 +34,7 @@ operator:
   # Component registry override; other images use global.imageRegistry.
   imageRegistry: harbor.saas1.smart-scaler.io/avesha/aveshadev
   image: worker-operator-ent-egs
-  tag: 1.19.0-RELEASE-f974b40f
+  tag: 1.19.0-RELEASE-cf635620
   pullPolicy: IfNotPresent
   logLevel: INFO
   # Expiration (seconds) for slice-scoped ServiceAccount tokens minted via the TokenRequest API. Default 1 year.
@@ -235,7 +235,7 @@ aiops:
   # Component registry override; other images use global.imageRegistry.
   imageRegistry: harbor.saas1.smart-scaler.io/avesha/aveshadev
   image: kube-aiops-operator
-  tag: 1.18.0-RELEASE-94bc3ec2
+  tag: 1.18.0-RELEASE-f4afc398
   pullPolicy: IfNotPresent
   logLevel: INFO
   labels:
@@ -463,6 +463,11 @@ kubesliceNetworking:
 
 nsm:
   # Inherits global configuration from parent chart automatically
+  admission-webhook:
+    admissionWebhook:
+      # Component registry override; sidecar images use global.imageRegistry.
+      imageRegistry: harbor.saas1.smart-scaler.io/avesha/aveshadev
+      webhookImageTag: 1.7.4
   spire:
     priorityClassName: ""
     spire-server:

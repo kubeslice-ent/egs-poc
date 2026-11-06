@@ -18,8 +18,10 @@ global:
     email: ''
 
 admissionWebhook:
+  # Webhook image registry override; sidecar images still use global.imageRegistry.
+  imageRegistry: ""
   webhookImageRegistry: cmd-admission-webhook-k8s
-  webhookImageTag: 1.7.3
+  webhookImageTag: 1.7.4
   labels:
     app: kubeslice-nsm-webhook
   annotations: {}
@@ -83,6 +85,13 @@ nsmInjectContainerImageTag: 1.5.14
 nsmInjectInitContainerImageRegistry: cmd-nsc-init
 nsmInjectInitContainerImageTag: 1.5.9
 nsmInitContainerUpdateDNSConfig: true
+
+# OpenShift only: capabilities for the non-privileged sidecars; keep within the kubeslice-app SCC's allowedCapabilities.
+sidecarCapabilities:
+  init: []
+  container:
+    - NET_RAW
+    - NET_BIND_SERVICE
 
 # nsm admission webhook ns
 nsmNs: kubeslice-nsm-webhook-system

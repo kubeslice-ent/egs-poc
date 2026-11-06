@@ -59,6 +59,12 @@ spec:
         - name: spire-agent
           image: {{ include "spire.imageRegistry" . }}/{{ .Values.spireAgent.imageRegistry }}:{{ .Values.spireAgent.imageTag }}
           args: ["-config", "/run/spire/config/agent.conf"]
+          {{- if .Values.global.profile.openshift }}
+          # A privileged (spc_t) agent can't be reached by non-privileged sidecars under SELinux.
+          securityContext:
+            privileged: false
+            allowPrivilegeEscalation: false
+          {{- end }}
           volumeMounts:
             - name: spire-config
               mountPath: /run/spire/config

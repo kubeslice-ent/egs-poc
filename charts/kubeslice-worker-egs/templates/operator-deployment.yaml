@@ -100,6 +100,8 @@ spec:
             value: '{{ .Values.operator.excludeNamespaces | join "," }}'
           - name: SLICE_RBAC_SA_TOKEN_EXPIRATION_SECONDS
             value: "{{ .Values.operator.sliceRbacSaTokenExpirationSeconds | int }}"
+          - name: ENABLE_OPENSHIFT_SCC_BINDING
+            value: "{{ .Values.global.profile.openshift | default false }}"
           - name: AVESHA_VL3_ROUTER_IMAGE
             value: {{ include "kubeslice.image" (dict "imageRoot" .Values.router "global" .Values.global) }}
           - name: AVESHA_VL3_ROUTER_PULLPOLICY

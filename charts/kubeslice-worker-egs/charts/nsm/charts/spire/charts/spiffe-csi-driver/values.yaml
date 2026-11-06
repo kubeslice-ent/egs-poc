@@ -86,6 +86,14 @@ nodeDriverRegistrar:
     #   cpu: 100m
     #   memory: 64Mi
 
+# -- OpenShift only: image with chcon that labels the agent socket dir; not under global.imageRegistry
+selinuxInit:
+  image:
+    registry: registry.access.redhat.com
+    repository: ubi9
+    pullPolicy: IfNotPresent
+    tag: latest
+
 # -- The unix socket path to the spire-agent
 agentSocketPath: /run/spire/sockets/agent.sock
 

@@ -38,6 +38,19 @@ spec:
       {{- if .Values.priorityClassName }}
       priorityClassName: {{ .Values.priorityClassName }}
       {{- end }}
+      {{- if .Values.global.profile.openshift }}
+      # Label the agent socket dir so non-privileged (container_t) sidecars can reach it.
+      initContainers:
+        - name: set-context
+          image: {{ .Values.selinuxInit.image.registry }}/{{ .Values.selinuxInit.image.repository }}:{{ .Values.selinuxInit.image.tag }}
+          imagePullPolicy: {{ .Values.selinuxInit.image.pullPolicy }}
+          command: ["chcon", "-Rvt", "container_file_t", "/spire-agent-socket/"]
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - mountPath: /spire-agent-socket
+              name: spire-agent-socket-dir
+      {{- end }}
       containers:
         # This is the container which runs the SPIFFE CSI driver.
         - name: spiffe-csi-driver 
