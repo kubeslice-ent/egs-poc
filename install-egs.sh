@@ -155,7 +155,10 @@ backup_existing_config() {
 # Overwrite the working-directory config from the repo template, backing up any existing one first.
 install_repo_config() {
     backup_existing_config
-    cp "$REPO_SRC/egs-installer-config.yaml" "$ORIGINAL_DIR/egs-installer-config.yaml"
+    # In-place run (--local-repo .): the repo template already is the working config
+    if [ "$SAME_DIR" != "true" ]; then
+        cp "$REPO_SRC/egs-installer-config.yaml" "$ORIGINAL_DIR/egs-installer-config.yaml"
+    fi
 }
 
 # Detect whether a component is already present in the cluster.
@@ -926,21 +929,29 @@ else
     print_success "Downloaded EGS installer"
 fi
 
-# Copy necessary files to original directory
-print_info "Setting up installation in current directory..."
-# Remove charts left by a previous run so stale files (e.g. old CRDs) can't survive the copy.
-# Skip when the run directory is the checkout itself (--local-repo .), or we'd delete the source.
-if [ "$(cd "$REPO_SRC" && pwd -P)" != "$(cd "$ORIGINAL_DIR" && pwd -P)" ]; then
-    rm -rf "$ORIGINAL_DIR/charts"
+# Running inside the checkout itself (--local-repo .): source and destination are the
+# same files, so the copies below (and in install_repo_config) must be skipped.
+SAME_DIR="false"
+if [ "$(cd "$REPO_SRC" && pwd -P)" = "$(cd "$ORIGINAL_DIR" && pwd -P)" ]; then
+    SAME_DIR="true"
 fi
-cp -r "$REPO_SRC/charts" "$ORIGINAL_DIR/" 2>/dev/null || {
-    print_error "Failed to copy charts directory"
-    exit 1
-}
-cp "$REPO_SRC/egs-installer.sh" "$ORIGINAL_DIR/"
-cp "$REPO_SRC/egs-install-prerequisites.sh" "$ORIGINAL_DIR/"
-cp "$REPO_SRC/egs-uninstall.sh" "$ORIGINAL_DIR/" 2>/dev/null || true
-cp "$REPO_SRC/fetch_egs_slice_token.sh" "$ORIGINAL_DIR/" 2>/dev/null || true
+
+# Copy necessary files to original directory
+if [ "$SAME_DIR" = "true" ]; then
+    print_info "Running inside the installer checkout - using its files in place"
+else
+    print_info "Setting up installation in current directory..."
+    # Remove charts left by a previous run so stale files (e.g. old CRDs) can't survive the copy.
+    rm -rf "$ORIGINAL_DIR/charts"
+    cp -r "$REPO_SRC/charts" "$ORIGINAL_DIR/" 2>/dev/null || {
+        print_error "Failed to copy charts directory"
+        exit 1
+    }
+    cp "$REPO_SRC/egs-installer.sh" "$ORIGINAL_DIR/"
+    cp "$REPO_SRC/egs-install-prerequisites.sh" "$ORIGINAL_DIR/"
+    cp "$REPO_SRC/egs-uninstall.sh" "$ORIGINAL_DIR/" 2>/dev/null || true
+    cp "$REPO_SRC/fetch_egs_slice_token.sh" "$ORIGINAL_DIR/" 2>/dev/null || true
+fi
 
 # Use egs-installer-config.yaml from repo as source of truth
 if [ ! -f "$REPO_SRC/egs-installer-config.yaml" ]; then
