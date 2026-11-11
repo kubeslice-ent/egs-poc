@@ -239,11 +239,11 @@ aiops:
   pullPolicy: IfNotPresent
   logLevel: INFO
   # SNO / compact clusters: don't taint GPU nodes that are also control-plane nodes
-  skipControlPlaneTaint: false
+  skipControlPlaneTaint: true
   # Rejects pods requesting NVIDIA GPUs outside slice namespaces
   gpuAdmissionPolicy:
     # needs Kubernetes 1.30+ (OpenShift 4.17+); skipped on older clusters
-    enabled: false
+    enabled: true
     # Deny rejects matching pods; use [Warn, Audit] to only report
     validationActions:
       - Deny
