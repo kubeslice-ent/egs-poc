@@ -235,9 +235,22 @@ aiops:
   # Component registry override; other images use global.imageRegistry.
   imageRegistry: harbor.saas1.smart-scaler.io/avesha/aveshadev
   image: kube-aiops-operator
-  tag: 1.18.0-RELEASE-f4afc398
+  tag: 1.18.0-RELEASE-c69aa37d
   pullPolicy: IfNotPresent
   logLevel: INFO
+  # SNO / compact clusters: don't taint GPU nodes that are also control-plane nodes
+  skipControlPlaneTaint: false
+  # Rejects pods requesting NVIDIA GPUs outside slice namespaces
+  gpuAdmissionPolicy:
+    # needs Kubernetes 1.30+ (OpenShift 4.17+); skipped on older clusters
+    enabled: false
+    # Deny rejects matching pods; use [Warn, Audit] to only report
+    validationActions:
+      - Deny
+    # namespaces besides slice namespaces that may request GPUs (e.g. the GPU operator)
+    allowedNamespaces:
+      - nvidia-gpu-operator
+      - egs-gpu-operator
   labels:
     control-plane: aiops-controller-manager
   annotations:
