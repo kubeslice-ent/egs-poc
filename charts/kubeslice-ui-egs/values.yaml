@@ -103,7 +103,7 @@ kubeslice:
     # Component registry override; other images use global.imageRegistry.
     imageRegistry: harbor.saas1.smart-scaler.io/avesha/aveshadev
     image: kubeslice-ui-v2-ent-egs
-    tag: 1.19.0-RELEASE-367ee3be
+    tag: 1.19.0-RELEASE-f3957c44
     pullPolicy: IfNotPresent
     service:
       type: ClusterIP

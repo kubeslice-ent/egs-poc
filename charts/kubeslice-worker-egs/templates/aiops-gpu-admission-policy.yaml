@@ -1,0 +1,44 @@
+{{- $policy := .Values.aiops.gpuAdmissionPolicy | default dict }}
+{{- if and $policy.enabled (.Capabilities.APIVersions.Has "admissionregistration.k8s.io/v1/ValidatingAdmissionPolicy") }}
+# Allows NVIDIA GPU requests only from slice namespaces and the listed system namespaces
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: egs-gpu-only-in-slices
+  labels:
+    component: aiops-gpu-admission-policy
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE"]
+        resources: ["pods"]
+  variables:
+    - name: containers
+      expression: "object.spec.containers + (has(object.spec.initContainers) ? object.spec.initContainers : [])"
+    - name: asksForGPU
+      expression: >-
+        variables.containers.exists(c, has(c.resources) && (
+          (has(c.resources.limits) && c.resources.limits.exists(k, k.startsWith('nvidia.com/'))) ||
+          (has(c.resources.requests) && c.resources.requests.exists(k, k.startsWith('nvidia.com/')))))
+    - name: isSliceNamespace
+      expression: "has(namespaceObject.metadata.labels) && 'kubeslice.io/slice' in namespaceObject.metadata.labels"
+    - name: isAllowedNamespace
+      expression: >-
+        namespaceObject.metadata.name in [{{ range $i, $ns := ($policy.allowedNamespaces | default list) }}{{ if $i }}, {{ end }}'{{ $ns }}'{{ end }}]
+  validations:
+    - expression: "!variables.asksForGPU || variables.isSliceNamespace || variables.isAllowedNamespace"
+      message: "GPUs on this cluster are managed by EGS. Run GPU workloads in an EGS slice namespace."
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: egs-gpu-only-in-slices
+  labels:
+    component: aiops-gpu-admission-policy
+spec:
+  policyName: egs-gpu-only-in-slices
+  validationActions: {{ $policy.validationActions | default (list "Warn" "Audit") | toJson }}
+{{- end }}

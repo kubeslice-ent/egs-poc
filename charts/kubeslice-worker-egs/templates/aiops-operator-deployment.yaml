@@ -86,6 +86,8 @@ spec:
               value: {{ .Values.aiops.logLevel }}
             - name: DEV_MODE
               value: "false"
+            - name: SKIP_CONTROL_PLANE_TAINT
+              value: {{ .Values.aiops.skipControlPlaneTaint | default false | quote }}
             - name: HUB_HOST_ENDPOINT
               valueFrom:
                 secretKeyRef:
