@@ -43,8 +43,11 @@ grant_sa privileged prometheus-prometheus-node-exporter egs-monitoring
 grant_group nonroot-v2 kubeslice-controller
 grant_group nonroot-v2 kubeslice-system
 # workspace gateway key job (open-cert-*) writes /work in the image root filesystem, so it must run as root;
-# under restricted-v2 it "completes" without keys and no workspace gateway pods are ever created
-grant_sa anyuid kubeslice-controller-ovpn-manager kubeslice-controller
+# under restricted-v2 it "completes" without keys and no workspace gateway pods are ever created.
+# Granted by full service-account name (cluster role binding, not -z): it works before kubeslice-controller
+# exists (controller Step 3 runs before the installer) and on worker-only clusters, which never have that namespace.
+oc "${CONTEXT_ARG[@]}" adm policy "${VERB}user" anyuid \
+  system:serviceaccount:kubeslice-controller:kubeslice-controller-ovpn-manager || [ "$ACTION" = revoke ]
 
 # --- worker networking: nsmgr, forwarder-kernel, netop, spire, NSM webhook (hostNetwork/hostPath/privileged) ---
 # The worker chart also creates egs-worker-privileged-scc for spire + kubeslice-system when
