@@ -1,0 +1,16 @@
+# NodePort by default: smart-scaler-ui's API calls run in the end user's browser, so the
+# backend needs an externally-reachable address. With route.enabled use ClusterIP - the
+# Route provides that address. The port is named "http" because the Route targets it.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-backend
+  namespace: {{ .Release.Namespace }}
+spec:
+  type: {{ .Values.backend.service.type }}
+  selector:
+    app: {{ .Release.Name }}-backend
+  ports:
+    - name: http
+      port: {{ .Values.backend.service.port }}
+      targetPort: {{ .Values.backend.service.targetPort }}

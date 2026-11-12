@@ -1,0 +1,8 @@
+apiVersion: v2
+appVersion: 3.3.0
+description: backend + smart-scaler-ui for an in-house/test cluster, talking to an
+  already-deployed EGS stack (kubeslice-controller-egs/kubeslice-ui-egs). Packages
+  what was hand-deployed as raw manifests in ../../manifests/ during the UAT-1 bring-up.
+name: smart-scaler-app
+type: application
+version: 0.2.0

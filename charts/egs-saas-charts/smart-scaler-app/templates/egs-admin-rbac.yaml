@@ -1,0 +1,46 @@
+# Templates the Secret + RBAC done by hand this session so backend's existing
+# GetEGSBearerToken() flow (Redis-miss -> this K8s Secret -> EGS /authentication
+# exchange) works without any code changes. Lives in .Values.egs.adminNamespace
+# (hardcoded on the backend side as constants.EGSAdminSecretNamespace), which is
+# deliberately NOT .Release.Namespace - these resources are cross-namespace and
+# `helm uninstall` will remove them along with everything else in this release.
+#
+# egs.manageAdminSecret: false lets a second release (e.g. a side-by-side test
+# install) reuse an egs-admin-details Secret another release already owns in the
+# same cluster, instead of colliding with it - only the RBAC granting this
+# release's own namespace read access gets created.
+{{- if .Values.egs.manageAdminSecret }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: egs-admin-details
+  namespace: {{ .Values.egs.adminNamespace }}
+type: Opaque
+stringData:
+  token: {{ required "egs.adminToken is required (raw admin ServiceAccount token, see project-test.yaml)" .Values.egs.adminToken | quote }}
+---
+{{- end }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ .Release.Name }}-read-egs-admin-secret
+  namespace: {{ .Values.egs.adminNamespace }}
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["egs-admin-details"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ .Release.Name }}-backend-read-egs-admin-secret
+  namespace: {{ .Values.egs.adminNamespace }}
+subjects:
+  - kind: ServiceAccount
+    name: default
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: {{ .Release.Name }}-read-egs-admin-secret
+  apiGroup: rbac.authorization.k8s.io

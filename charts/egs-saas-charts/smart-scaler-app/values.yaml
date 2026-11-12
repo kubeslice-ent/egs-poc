@@ -1,0 +1,153 @@
+# Default values for smart-scaler-app.
+#
+# Non-secret fields below default to exactly what's running on UAT-1 today, so
+# `helm install` with only the required secret values filled in reproduces the
+# current deployment. Anything that holds real credentials is left blank and
+# enforced via Helm's `required` — never commit real values for those into this
+# file; pass them with `--set` or a separate, untracked values file instead.
+
+backend:
+  image:
+    repository: harbor.saas1.smart-scaler.io/avesha/aveshadev/smart-scaler-backend
+    tag: 3.3.0-SNAPSHOT-63669b2e
+    # IfNotPresent: tags are pinned, and Always makes every pod restart depend on the
+    # registry being reachable.
+    pullPolicy: IfNotPresent
+  replicas: 1
+
+  # Gin framework mode and app environment. Defaults keep the original POC behaviour.
+  ginMode: "debug"
+  appEnv: "development"
+
+  # Pod/container securityContext, rendered only when set. On OpenShift leave runAsUser/
+  # fsGroup unset: the restricted-v2 SCC assigns a UID from the namespace range itself.
+  podSecurityContext: {}
+  securityContext: {}
+
+  service:
+    # NodePort for plain Kubernetes. With route.enabled=true use ClusterIP: the Route
+    # is the only way in.
+    type: NodePort
+    port: 80
+    targetPort: 5000
+
+  # http://<node-ip>:<nodePort> once known (see NOTES.txt) - becomes VITE_BASE_URL's host.
+  # With route.enabled=true, leave empty: it defaults to https://<route.host>.
+  # No trailing slash (the chart appends /api/v1).
+  externalURL: ""
+
+  # No SMTP configured in this environment - see internal/controller/impl/user_controller.go
+  # and user_repository.go (SKIP_EMAIL_VERIFICATION). Off by default upstream; true here.
+  skipEmailVerification: true
+
+  # Comma-separated. Without this, only the first org per email domain can sign up
+  # (one-org-per-domain is intentional product behavior). Empty = no exclusions beyond
+  # the hardcoded defaults (gmail.com, yahoo.com, etc. - see internal/constants/organisation.go).
+  domainExclusionList: "avesha.io"
+
+  resources:
+    requests: { cpu: 200m, memory: 512Mi }
+    limits: { cpu: 1, memory: 1Gi }
+
+  mysql:
+    # Real credentials required - left blank on purpose, see file header.
+    hostname: ""
+    port: 3306
+    username: ""
+    password: ""
+    dbname: ""
+
+  secrets:
+    # Set to reuse an existing Secret (must have the same keys this chart would create:
+    # ACCESS_TOKEN_SECRET, REFRESH_TOKEN_SECRET, ENCRYPTION_SECRET) instead of templating
+    # one from the values below.
+    existingSecret: ""
+    accessTokenSecret: ""
+    refreshTokenSecret: ""
+    # Must be exactly 32 characters - AES-256 key. The backend panics on boot otherwise
+    # (see github.com/smart-scaler/apis/pkg/encryption's init()).
+    encryptionSecret: ""
+
+  adminEmailId: "admin@example.com"
+
+ui:
+  image:
+    repository: harbor.saas1.smart-scaler.io/avesha/aveshadev/smart-scaler-ui
+    tag: v3.0.1-RELEASE-c9120009
+    pullPolicy: IfNotPresent
+  replicas: 1
+
+  # Dedicated ServiceAccount, so an OpenShift SCC grant (anyuid - the image runs as root
+  # and its init.sh writes into /usr/share/nginx/html) covers the UI only, not the backend.
+  # The name is fixed rather than release-derived so openshift-scc-grants.sh can name it.
+  # create=false uses `name`, or the namespace's `default` ServiceAccount if name is empty.
+  # Side-by-side releases in one namespace need distinct names.
+  serviceAccount:
+    create: true
+    name: ""
+
+  # Rendered only when set. Do NOT set seccompProfile here on OpenShift: anyuid on the EGS
+  # clusters has no seccompProfiles and rejects the pod. Do NOT drop ALL capabilities: the
+  # image's nginx starts as root and needs CHOWN/SETUID/SETGID to drop to its worker user.
+  podSecurityContext: {}
+  securityContext: {}
+
+  service:
+    # NodePort for plain Kubernetes. With route.enabled=true use ClusterIP.
+    type: NodePort
+    port: 80
+
+  # http://<node-ip>:<nodePort> once known (see NOTES.txt) - used to derive UI_URL/
+  # COOKIE_DOMAIN/ALLOWED_ORIGINS/GATEWAY_URL. Must be reachable from users' browsers.
+  # With route.enabled=true, leave empty: it defaults to https://<route.host>.
+  # No trailing slash.
+  externalURL: ""
+
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { cpu: 200m, memory: 256Mi }
+
+  # The sign-in/sign-up pages have a full email/password form as their primary control
+  # (see signin.tsx) - Google/GitHub are secondary buttons, deliberately left
+  # non-functional here rather than wiring real OAuth client credentials/origins.
+  googleClientId: "disabled"
+  githubClientId: "disabled"
+  githubRedirectUri: "http://disabled"
+
+egs:
+  # Namespace where kubeslice-api-gw already runs (egs-controller/egs-ui chart release).
+  namespace: kubeslice-controller
+  # Namespace where the egs-admin-details Secret + RBAC get created. Hardcoded on the
+  # backend side (constants.EGSAdminSecretNamespace) - not configurable without a code change.
+  adminNamespace: smart-scaler-controller
+  # Long-lived EGS project admin token, read from the kubeslice-rbac-rw-admin Secret:
+  #   kubectl get secret kubeslice-rbac-rw-admin -n kubeslice-<project> \
+  #     -o jsonpath='{.data.token}' | base64 -d
+  # Do not use `kubectl create token`: those tokens expire (1h default) and the backend
+  # then gets 401 from EGS.
+  # Required when manageAdminSecret is true - left blank on purpose, see file header.
+  adminToken: ""
+  # Set false for a second/side-by-side release in a cluster where another release
+  # already owns the egs-admin-details Secret - only this release's own RBAC grant
+  # gets created, reusing the existing Secret instead of colliding with it.
+  manageAdminSecret: true
+
+# OpenShift Routes: one hostname, "/" -> UI Service and "/api" -> backend Service, so the
+# browser sees a single origin (no CORS, login cookie on the same host). The router
+# matches "/api" by path segment, so /apiconfig.json still goes to the UI.
+# Needs the route.openshift.io/v1 API; the chart fails clearly if it is missing (for an
+# offline `helm template`, add --api-versions route.openshift.io/v1/Route).
+route:
+  enabled: false
+  # Required when enabled, e.g. smart-scaler.apps.<cluster-domain>. Keep it one label
+  # under *.apps so the router's wildcard certificate covers it. Cluster domain:
+  #   oc get ingresses.config.openshift.io cluster -o jsonpath='{.spec.domain}'
+  host: ""
+  # Extra Route annotations, e.g. haproxy.router.openshift.io/timeout: 120s
+  annotations: {}
+  # Rendered as spec.tls of both Routes. Edge = the router's certificate (the cluster's
+  # default ingress certificate unless replaced). Add certificate/key/caCertificate here
+  # to use your own. Set to null for plain-HTTP Routes (then the URLs become http://).
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

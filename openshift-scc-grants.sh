@@ -49,6 +49,14 @@ grant_group nonroot-v2 kubeslice-system
 oc "${CONTEXT_ARG[@]}" adm policy "${VERB}user" anyuid \
   system:serviceaccount:kubeslice-controller:kubeslice-controller-ovpn-manager || [ "$ACTION" = revoke ]
 
+# --- Smart Scaler UI (smart-scaler-app chart, controller cluster) ---
+# The UI image runs as root: its init.sh writes /usr/share/nginx/html/apiconfig.json and nginx chowns
+# /var/cache/nginx, so restricted-v2 crash-loops it. anyuid goes to the chart's dedicated UI ServiceAccount
+# only; the backend stays on restricted-v2. Full name (not -z) so it works before the namespace exists and
+# on worker clusters. Keep the chart's UI pod free of seccompProfile (anyuid here has none, see above).
+oc "${CONTEXT_ARG[@]}" adm policy "${VERB}user" anyuid \
+  system:serviceaccount:smart-scaler-backend:smart-scaler-ui || [ "$ACTION" = revoke ]
+
 # --- worker networking: nsmgr, forwarder-kernel, netop, spire, NSM webhook (hostNetwork/hostPath/privileged) ---
 # The worker chart also creates egs-worker-privileged-scc for spire + kubeslice-system when
 # global.profile.openshift=true; kubeslice-nsm-webhook-system is NOT covered by the chart.
