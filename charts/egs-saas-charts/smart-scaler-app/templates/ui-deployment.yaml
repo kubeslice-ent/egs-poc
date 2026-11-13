@@ -19,6 +19,10 @@ spec:
         app: {{ .Release.Name }}-ui
     spec:
       serviceAccountName: {{ include "smart-scaler-app.uiServiceAccountName" . }}
+      # Deprecated alias, set on purpose: the API server fills it in and copies it back into
+      # serviceAccountName when that is removed. Without it, a rollback/downgrade to 0.1.0 (which
+      # sets neither field) keeps the deleted smart-scaler-ui account and new UI pods are refused.
+      serviceAccount: {{ include "smart-scaler-app.uiServiceAccountName" . }}
       automountServiceAccountToken: false
       {{- with .Values.ui.podSecurityContext }}
       securityContext:
