@@ -1,0 +1,94 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-backend
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Release.Name }}-backend
+spec:
+  replicas: {{ .Values.backend.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-backend
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-backend
+    spec:
+      # Uses the namespace's default ServiceAccount: egs-admin-rbac.yaml's RoleBinding
+      # grants exactly that account read access to egs-admin-details. Change both together.
+      {{- with .Values.backend.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: backend
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          {{- with .Values.backend.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: 5000
+          env:
+            - name: PORT
+              value: "5000"
+            - name: GIN_MODE
+              value: {{ .Values.backend.ginMode | default "debug" | quote }}
+            - name: APP_ENV
+              value: {{ .Values.backend.appEnv | default "development" | quote }}
+            - name: CONTROLLER_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            # kubeslice-api-gw from the already-deployed egs-controller/egs-ui release.
+            - name: EGS_BACKEND_URL
+              value: "http://kubeslice-api-gw.{{ .Values.egs.namespace }}.svc.cluster.local:8080"
+            - name: MYSQL_USERNAME
+              valueFrom: { secretKeyRef: { name: {{ include "smart-scaler-app.backendSecretName" . }}, key: MYSQL_USERNAME } }
+            - name: MYSQL_PASSWORD
+              valueFrom: { secretKeyRef: { name: {{ include "smart-scaler-app.backendSecretName" . }}, key: MYSQL_PASSWORD } }
+            - name: MYSQL_HOSTNAME
+              valueFrom: { secretKeyRef: { name: {{ include "smart-scaler-app.backendSecretName" . }}, key: MYSQL_HOSTNAME } }
+            - name: MYSQL_PORT
+              valueFrom: { secretKeyRef: { name: {{ include "smart-scaler-app.backendSecretName" . }}, key: MYSQL_PORT } }
+            - name: MYSQL_DBNAME
+              valueFrom: { secretKeyRef: { name: {{ include "smart-scaler-app.backendSecretName" . }}, key: MYSQL_DBNAME } }
+            - name: ACCESS_TOKEN_SECRET
+              valueFrom: { secretKeyRef: { name: {{ include "smart-scaler-app.backendSecretName" . }}, key: ACCESS_TOKEN_SECRET } }
+            - name: REFRESH_TOKEN_SECRET
+              valueFrom: { secretKeyRef: { name: {{ include "smart-scaler-app.backendSecretName" . }}, key: REFRESH_TOKEN_SECRET } }
+            - name: ENCRYPTION_SECRET
+              valueFrom: { secretKeyRef: { name: {{ include "smart-scaler-app.backendSecretName" . }}, key: ENCRYPTION_SECRET } }
+            # Derived from ui.externalURL/backend.externalURL - not stored in the Secret,
+            # since these are plain URLs rather than credentials. Left as empty-tolerant
+            # rather than `required`: on a NodePort install the port doesn't exist until the
+            # first install - see NOTES.txt. With route.enabled they come from route.host.
+            {{- $uiURL := include "smart-scaler-app.uiExternalURL" . }}
+            - name: UI_URL
+              value: {{ $uiURL | quote }}
+            - name: ALLOWED_ORIGINS
+              value: {{ $uiURL | quote }}
+            - name: GATEWAY_URL
+              value: {{ $uiURL | quote }}
+            - name: COOKIE_DOMAIN
+              value: {{ (urlParse $uiURL).hostname | quote }}
+            - name: ADMIN_EMAIL_ID
+              value: {{ .Values.backend.adminEmailId | quote }}
+            - name: BACKEND_GATEWAY_ROLE_CONFIG_PATH
+              value: "/config/"
+            - name: SKIP_EMAIL_VERIFICATION
+              value: {{ .Values.backend.skipEmailVerification | quote }}
+            - name: DOMAIN_EXCLUSION_LIST
+              value: {{ .Values.backend.domainExclusionList | quote }}
+          volumeMounts:
+            - name: role-config
+              mountPath: /config
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}
+      volumes:
+        - name: role-config
+          configMap:
+            name: {{ .Release.Name }}-backend-role-config

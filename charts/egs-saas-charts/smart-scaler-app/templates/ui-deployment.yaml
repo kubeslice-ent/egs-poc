@@ -1,0 +1,55 @@
+# Reuses the published smart-scaler-ui image as-is - nginx's init.sh (docker-entrypoint.d
+# hook) regenerates apiconfig.json from these env vars at container start, so no rebuild
+# is needed to point this at a different backend.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-ui
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Release.Name }}-ui
+spec:
+  replicas: {{ .Values.ui.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-ui
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-ui
+    spec:
+      serviceAccountName: {{ include "smart-scaler-app.uiServiceAccountName" . }}
+      # Deprecated alias, set on purpose: the API server fills it in and copies it back into
+      # serviceAccountName when that is removed. Without it, a rollback/downgrade to 0.1.0 (which
+      # sets neither field) keeps the deleted smart-scaler-ui account and new UI pods are refused.
+      serviceAccount: {{ include "smart-scaler-app.uiServiceAccountName" . }}
+      automountServiceAccountToken: false
+      {{- with .Values.ui.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: smart-scaler-ui
+          image: "{{ .Values.ui.image.repository }}:{{ .Values.ui.image.tag }}"
+          imagePullPolicy: {{ .Values.ui.image.pullPolicy }}
+          {{- with .Values.ui.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: 80
+          env:
+            # Must be externally reachable (browser-side calls), not an in-cluster Service
+            # DNS name - see backend.service / backend.externalURL. Empty-tolerant rather
+            # than `required` - see backend-deployment.yaml's UI_URL comment.
+            - name: VITE_BASE_URL
+              value: "{{ include "smart-scaler-app.backendExternalURL" . }}/api/v1"
+            - name: VITE_GOOGLE_CLIENT_ID
+              value: {{ .Values.ui.googleClientId | quote }}
+            - name: VITE_GITHUB_CLIENT_ID
+              value: {{ .Values.ui.githubClientId | quote }}
+            - name: VITE_GITHUB_REDIRECT_URI
+              value: {{ .Values.ui.githubRedirectUri | quote }}
+          resources:
+            {{- toYaml .Values.ui.resources | nindent 12 }}

@@ -1,0 +1,228 @@
+# Static content, copied from the real prod config:
+# smart-scaler-saas-argocd/saas-registration/backend/backend-gateway-role-config.yaml
+#
+# This is fixed product RBAC config (role -> permission mapping), not something that
+# should vary per deployment, so it's baked in here rather than exposed via values.yaml.
+# internal/api/server.go calls GetRolesFromConfig() before Start() returns and Fatals on
+# error - this ConfigMap is a hard boot dependency, not optional.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-backend-role-config
+  namespace: {{ .Release.Namespace }}
+data:
+  role-config.yaml: |
+    - display_name: Admin
+      slug: admin
+      description: Has complete control of all the components.
+      permissions:
+        - resource: dashboard
+          actions:
+            - read
+        - resource: agents
+          actions:
+            - read
+            - create
+            - update
+            - delete
+            - install
+        - resource: users
+          actions:
+            - read
+            - create
+            - update
+            - delete
+        - resource: settings
+          actions:
+            - read
+            - update
+        - resource: events
+          actions:
+            - read
+            - create
+            - update
+            - delete
+        - resource: applications
+          actions:
+            - read
+            - create
+            - update
+            - delete
+        - resource: scaling_ratios
+          actions:
+            - read
+            - create
+            - update
+            - delete
+        - resource: notifications
+          actions:
+            - read
+        - resource: smart_sizing
+          actions:
+            - read
+        - resource: billing
+          actions:
+            - read
+        - resource: node_scaling
+          actions:
+            - read
+        - resource: gpt
+          actions:
+            - read
+        - resource: debug
+          actions:
+            - read
+            - create
+    - display_name: Editor
+      slug: editor
+      description: Has complete control of all the components except user management.
+      permissions:
+        - resource: dashboard
+          actions:
+            - read
+        - resource: agents
+          actions:
+            - read
+            - create
+            - update
+            - install
+        - resource: settings
+          actions:
+            - read
+        - resource: events
+          actions:
+            - read
+            - create
+            - update
+            - delete
+        - resource: applications
+          actions:
+            - read
+            - create
+            - update
+            - delete
+        - resource: scaling_ratios
+          actions:
+            - read
+            - create
+            - update
+            - delete
+        - resource: notifications
+          actions:
+            - read
+        - resource: smart_sizing
+          actions:
+            - read
+        - resource: node_scaling
+          actions:
+            - read
+        - resource: gpt
+          actions:
+            - read
+    - display_name: Event Manager
+      slug: event-manager
+      description: Can manage agents and events.
+      permissions:
+        - resource: agents
+          actions:
+            - read
+            - create
+            - install
+        - resource: events
+          actions:
+            - read
+            - create
+            - update
+            - delete
+        - resource: notifications
+          actions:
+            - read
+        - resource: smart_sizing
+          actions:
+            - read
+        - resource: node_scaling
+          actions:
+            - read
+        - resource: gpt
+          actions:
+            - read
+    - display_name: Viewer
+      slug: viewer
+      description: Has read only access to all the components.
+      permissions:
+        - resource: dashboard
+          actions:
+            - read
+        - resource: agents
+          actions:
+            - read
+        - resource: settings
+          actions:
+            - read
+        - resource: events
+          actions:
+            - read
+        - resource: applications
+          actions:
+            - read
+        - resource: scaling_ratios
+          actions:
+            - read
+        - resource: notifications
+          actions:
+            - read
+        - resource: smart_sizing
+          actions:
+            - read
+        - resource: node_scaling
+          actions:
+            - read
+        - resource: gpt
+          actions:
+            - read
+    - display_name: Avesha Support
+      slug: avesha-support
+      description: This is avesha-support
+      permissions:
+        - resource: dashboard
+          actions:
+            - read
+        - resource: agents
+          actions:
+            - read
+            - install
+        - resource: users
+          actions:
+            - read
+        - resource: settings
+          actions:
+            - read
+        - resource: events
+          actions:
+            - read
+        - resource: applications
+          actions:
+            - read
+        - resource: scaling_ratios
+          actions:
+            - read
+        - resource: notifications
+          actions:
+            - read
+        - resource: smart_sizing
+          actions:
+            - read
+        - resource: billing
+          actions:
+            - read
+            - create
+        - resource: debug
+          actions:
+            - read
+            - create
+        - resource: node_scaling
+          actions:
+            - read
+        - resource: gpt
+          actions:
+            - read

@@ -1,0 +1,39 @@
+{{- $route := .Values.route | default dict }}
+{{- if $route.enabled }}
+{{- if not (.Capabilities.APIVersions.Has "route.openshift.io/v1/Route") }}
+{{- fail "route.enabled=true but the route.openshift.io/v1 Route API is not available. Use it on OpenShift only; for an offline `helm template` add --api-versions route.openshift.io/v1/Route" }}
+{{- end }}
+{{- $host := include "smart-scaler-app.routeHost" . }}
+{{- $tls := include "smart-scaler-app.routeTLS" . }}
+{{- range $c := list (dict "name" "ui" "path" "") (dict "name" "backend" "path" "/api") }}
+---
+# {{ $c.name }}: {{ $host }}{{ $c.path | default "/" }}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ $.Release.Name }}-{{ $c.name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app: {{ $.Release.Name }}-{{ $c.name }}
+  {{- with $route.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  host: {{ $host | quote }}
+  {{- with $c.path }}
+  path: {{ . }}
+  {{- end }}
+  to:
+    kind: Service
+    name: {{ $.Release.Name }}-{{ $c.name }}
+    weight: 100
+  port:
+    targetPort: http
+  {{- with $tls }}
+  tls:
+    {{- . | nindent 4 }}
+  {{- end }}
+  wildcardPolicy: None
+{{- end }}
+{{- end }}

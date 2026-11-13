@@ -48,3 +48,18 @@ namespaces:
       - key: application
         value: egs
 
+  - name: smart-scaler-backend
+    annotations:
+      - key: application
+        value: egs
+    labels:
+      - key: application
+        value: egs
+
+  - name: smart-scaler-controller
+    annotations:
+      - key: application
+        value: egs
+    labels:
+      - key: application
+        value: egs

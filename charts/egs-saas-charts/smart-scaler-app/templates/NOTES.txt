@@ -1,0 +1,61 @@
+Thank you for installing {{ .Chart.Name }}.
+{{- $backendURL := include "smart-scaler-app.backendExternalURL" . }}
+{{- $uiURL := include "smart-scaler-app.uiExternalURL" . }}
+
+{{- if (.Values.route | default dict).enabled }}
+
+OpenShift Routes ({{ .Release.Name }}-ui on "/", {{ .Release.Name }}-backend on "/api"):
+
+*  UI:       {{ $uiURL }}
+*  Backend:  {{ $backendURL }}/api/v1/health-check
+
+  oc get route -n {{ .Release.Namespace }}    # both must show the host as admitted
+  oc get pods -n {{ .Release.Namespace }} -o custom-columns=NAME:.metadata.name,SCC:.metadata.annotations.openshift\.io/scc,STATUS:.status.phase
+{{- if include "smart-scaler-app.routeTLS" . }}
+
+With the cluster's default ingress certificate, curl needs its CA (browsers warn until a
+trusted certificate is installed):
+
+  oc get cm default-ingress-cert -n openshift-config-managed -o jsonpath='{.data.ca-bundle\.crt}' > ingress-ca.crt
+  curl --cacert ingress-ca.crt {{ $backendURL }}/api/v1/health-check
+{{- end }}
+
+{{- else if or (not $backendURL) (not $uiURL) }}
+
+*** externalURL not fully set - backend/UI may not work correctly yet ***
+
+backend.externalURL and ui.externalURL can't be known until the NodePorts exist, so if
+you installed with them blank, find the real addresses now (InternalIP if the nodes have
+no ExternalIP; it must be reachable from users' browsers):
+
+  export NODE_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="ExternalIP")].address}')
+  [ -z "$NODE_IP" ] && NODE_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
+  export BACKEND_PORT=$(kubectl get svc {{ .Release.Name }}-backend -n {{ .Release.Namespace }} -o jsonpath='{.spec.ports[0].nodePort}')
+  export UI_PORT=$(kubectl get svc {{ .Release.Name }}-ui -n {{ .Release.Namespace }} -o jsonpath='{.spec.ports[0].nodePort}')
+  echo "backend: http://$NODE_IP:$BACKEND_PORT   ui: http://$NODE_IP:$UI_PORT"
+
+Then re-run with both set, e.g.:
+
+  helm upgrade {{ .Release.Name }} <chart> -n {{ .Release.Namespace }} --reuse-values \
+    --set backend.externalURL=http://$NODE_IP:$BACKEND_PORT \
+    --set ui.externalURL=http://$NODE_IP:$UI_PORT
+
+{{- else }}
+
+*  Backend:  {{ $backendURL }}/api/v1/health-check
+*  UI:       {{ $uiURL }}
+
+{{- end }}
+
+To exercise the stack:
+  1. Open the UI, sign up with a real email/password (no SMTP here, so
+     SKIP_EMAIL_VERIFICATION={{ .Values.backend.skipEmailVerification }} marks the account
+     verified automatically).
+  2. Signup kicks off an async EGS workspace-creation flow against
+     http://kubeslice-api-gw.{{ .Values.egs.namespace }}.svc.cluster.local:8080 - a new
+     tenant-<hash> workspace appears shortly after.
+  3. Sign in and try deploying a model from the panel.
+
+If backend's EGS calls start 401ing, egs.adminToken is no longer valid. Use the long-lived
+token from the kubeslice-rbac-rw-admin Secret in kubeslice-<project> (not
+`kubectl create token`, which expires) and `helm upgrade --set egs.adminToken=...`.
