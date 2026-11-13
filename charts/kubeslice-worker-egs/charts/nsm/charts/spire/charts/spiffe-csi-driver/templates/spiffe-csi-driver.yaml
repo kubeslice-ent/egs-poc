@@ -2,7 +2,7 @@ apiVersion: storage.k8s.io/v1
 kind: CSIDriver
 metadata:
   name: {{ .Values.pluginName | quote }}
-  {{- if .Values.global.profile.openshift }}
+  {{- if include "egs.isOpenShift" . }}
   # Lets restricted SCC pods (slice sidecars) mount this inline CSI volume.
   labels:
     security.openshift.io/csi-ephemeral-volume-profile: restricted

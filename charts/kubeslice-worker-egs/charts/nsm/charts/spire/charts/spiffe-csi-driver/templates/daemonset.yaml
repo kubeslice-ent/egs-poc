@@ -38,7 +38,7 @@ spec:
       {{- if .Values.priorityClassName }}
       priorityClassName: {{ .Values.priorityClassName }}
       {{- end }}
-      {{- if .Values.global.profile.openshift }}
+      {{- if include "egs.isOpenShift" . }}
       # Label the agent socket dir so non-privileged (container_t) sidecars can reach it.
       initContainers:
         - name: set-context
@@ -82,7 +82,7 @@ spec:
             - mountPath: {{ .Values.kubeletPath }}/pods
               mountPropagation: Bidirectional
               name: mountpoint-dir
-              {{- if .Values.global.profile.openshift }}
+              {{- if include "egs.isOpenShift" . }}
             # The volume containing mount points for containers in openshift clusters
             - name: openshift-mountpoint-dir
               mountPath: /var/data/kubelet/pods
@@ -126,7 +126,7 @@ spec:
           resources:
             {{- toYaml .Values.nodeDriverRegistrar.resources | nindent 12 }}
       volumes:
-          {{- if .Values.global.profile.openshift }}
+          {{- if include "egs.isOpenShift" . }}
         # where SPIFFE CSI driver mounts volume in openshift clusters 
         - name: openshift-mountpoint-dir
           hostPath:

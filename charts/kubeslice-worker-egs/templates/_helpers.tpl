@@ -153,3 +153,10 @@ kubeslice.io/image-pull-secret: {{ include "kubeslice.imagePullSecrets" . | quot
 #   {{- end -}}
 # {{- end -}}
 # {{- end }}
+
+{{/*
+OpenShift mode: auto-detected from the SCC API; global.profile.openshift=true forces it on (offline rendering).
+*/}}
+{{- define "egs.isOpenShift" -}}
+{{- if or .Values.global.profile.openshift (.Capabilities.APIVersions.Has "security.openshift.io/v1/SecurityContextConstraints") -}}true{{- end -}}
+{{- end -}}

@@ -2,7 +2,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: manager-role
+  name: egs-spire-controller-manager-role
 rules:
   - apiGroups: [""]
     resources: ["namespaces"]

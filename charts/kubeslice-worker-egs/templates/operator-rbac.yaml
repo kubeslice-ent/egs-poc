@@ -822,7 +822,7 @@ rules:
       - patch
       - update
       - watch
-{{- if .Values.global.profile.openshift }}
+{{- if include "egs.isOpenShift" . }}
   # lets the operator bind the kubeslice-app SCC role in slice namespaces
   - apiGroups:
       - rbac.authorization.k8s.io
