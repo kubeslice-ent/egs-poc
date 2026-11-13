@@ -120,7 +120,7 @@ spec:
               value: "{{ .Values.global.imageRegistry }}/{{ .Values.workerInstaller.image }}:{{ .Values.workerInstaller.tag }}"
             # OpenShift: wait for the slice SCC role binding before deploying into a new slice namespace
             - name: ENABLE_OPENSHIFT_SCC_BINDING
-              value: "{{ .Values.global.profile.openshift | default false }}"
+              value: "{{ include "egs.isOpenShift" . | default "false" }}"
             - name: PREDICTOR_AUTH_URL
               value: https://inference-auth.saas1.smart-scaler.io/validate
             - name: PREDICTOR_INGRESS_DOMAIN

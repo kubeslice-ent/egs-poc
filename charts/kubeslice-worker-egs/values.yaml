@@ -28,6 +28,7 @@ global:
   
   # Profile-based configuration
   profile:
+    # auto-detected on OpenShift; set true only when rendering offline (helm template)
     openshift: false
 
 operator:

@@ -1,5 +1,5 @@
 {{- /* SCCs apply per pod, so this keeps the sidecars' extra capabilities to the real NSM sidecars. */ -}}
-{{- if and .Values.global.profile.openshift (.Capabilities.APIVersions.Has "admissionregistration.k8s.io/v1/ValidatingAdmissionPolicy") }}
+{{- if and (include "egs.isOpenShift" .) (.Capabilities.APIVersions.Has "admissionregistration.k8s.io/v1/ValidatingAdmissionPolicy") }}
 {{- $nscImage := printf "%s/%s:%s" (include "admission-webhook.imageRegistry" .) .Values.nsmInjectContainerImageRegistry .Values.nsmInjectContainerImageTag }}
 {{- $nscInitImage := printf "%s/%s:%s" (include "admission-webhook.imageRegistry" .) .Values.nsmInjectInitContainerImageRegistry .Values.nsmInjectInitContainerImageTag }}
 {{- $privileged := "has(c.securityContext) && has(c.securityContext.privileged) && c.securityContext.privileged" }}
