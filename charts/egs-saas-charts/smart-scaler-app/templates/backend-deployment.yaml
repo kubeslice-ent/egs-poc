@@ -36,9 +36,9 @@ spec:
             - name: PORT
               value: "5000"
             - name: GIN_MODE
-              value: {{ .Values.backend.ginMode | quote }}
+              value: {{ .Values.backend.ginMode | default "debug" | quote }}
             - name: APP_ENV
-              value: {{ .Values.backend.appEnv | quote }}
+              value: {{ .Values.backend.appEnv | default "development" | quote }}
             - name: CONTROLLER_NAMESPACE
               valueFrom:
                 fieldRef:

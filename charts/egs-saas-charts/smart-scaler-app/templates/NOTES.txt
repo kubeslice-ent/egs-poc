@@ -2,7 +2,7 @@ Thank you for installing {{ .Chart.Name }}.
 {{- $backendURL := include "smart-scaler-app.backendExternalURL" . }}
 {{- $uiURL := include "smart-scaler-app.uiExternalURL" . }}
 
-{{- if .Values.route.enabled }}
+{{- if (.Values.route | default dict).enabled }}
 
 OpenShift Routes ({{ .Release.Name }}-ui on "/", {{ .Release.Name }}-backend on "/api"):
 
@@ -11,7 +11,7 @@ OpenShift Routes ({{ .Release.Name }}-ui on "/", {{ .Release.Name }}-backend on 
 
   oc get route -n {{ .Release.Namespace }}    # both must show the host as admitted
   oc get pods -n {{ .Release.Namespace }} -o custom-columns=NAME:.metadata.name,SCC:.metadata.annotations.openshift\.io/scc,STATUS:.status.phase
-{{- if .Values.route.tls }}
+{{- if include "smart-scaler-app.routeTLS" . }}
 
 With the cluster's default ingress certificate, curl needs its CA (browsers warn until a
 trusted certificate is installed):
