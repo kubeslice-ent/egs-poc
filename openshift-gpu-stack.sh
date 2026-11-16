@@ -3,16 +3,24 @@
 # Run BEFORE the EGS installer, then install EGS with --skip-controller-gpu-operator / --skip-worker-gpu-operator.
 #
 #   ./openshift-gpu-stack.sh apply      # NFD Operator + NFD instance + GPU Operator, wait until ready
-#   ./openshift-gpu-stack.sh verify     # operator state, GPU nodes, driver version
+#   ./openshift-gpu-stack.sh verify     # operator state, GPU nodes, driver version, container toolkit
 #   ./openshift-gpu-stack.sh cuda-test  # run the CUDA vectorAdd sample pod and clean it up
 #
-# Uses KUBECONFIG / current context. Idempotent: safe to re-run.
-# Optional overrides: GPU_OPERATOR_VERSION (default v25.3.4), GPU_OPERATOR_NS (default egs-gpu-operator),
+# Uses KUBECONFIG / current context. Idempotent: safe to re-run; re-running apply upgrades an older GPU Operator.
+# Optional overrides: GPU_OPERATOR_VERSION (default v26.7.2, minimum v25.10.1), GPU_OPERATOR_NS (default egs-gpu-operator),
 #                     VALUES_FILE (default ./gpu-operator-ocp-values.yaml, also reusable in egs-installer-config.yaml)
+#
+# Why v25.10.1 or later: GPU Operator v25.3.x with CDI enabled (container toolkit v1.17.8) makes "nvidia" the
+# default CRI-O runtime for every container on the node, including etcd and kube-apiserver. After a crash or power
+# loss the NVIDIA kernel module is not loaded yet, the runtime wrapper prints a message on stdout, CRI-O can't parse
+# the container state, and a single-node cluster never comes back (the driver it waits for is loaded by a pod).
+# From v25.10.1 the operator no longer makes "nvidia" the default runtime when CDI is enabled, and the toolkit
+# (v1.18.1+) writes that message to stderr.
 set -euo pipefail
 
 ACTION="${1:-}"
-GPU_OPERATOR_VERSION="${GPU_OPERATOR_VERSION:-v25.3.4}"
+GPU_OPERATOR_VERSION="${GPU_OPERATOR_VERSION:-v26.7.2}"
+GPU_OPERATOR_MIN_VERSION="v25.10.1"
 GPU_OPERATOR_NS="${GPU_OPERATOR_NS:-egs-gpu-operator}"
 VALUES_FILE="${VALUES_FILE:-gpu-operator-ocp-values.yaml}"
 
@@ -115,6 +123,24 @@ EOF
   oc get nodes -l feature.node.kubernetes.io/pci-10de.present=true
 }
 
+check_gpu_operator_version() {
+  local oldest
+  oldest=$(printf '%s\n%s\n' "${GPU_OPERATOR_VERSION#v}" "${GPU_OPERATOR_MIN_VERSION#v}" | sort -V | head -1)
+  [ "$oldest" = "${GPU_OPERATOR_MIN_VERSION#v}" ] && return 0
+  if [ "${ALLOW_OLD_GPU_OPERATOR:-}" = "1" ]; then
+    echo "⚠️  GPU_OPERATOR_VERSION=$GPU_OPERATOR_VERSION is older than $GPU_OPERATOR_MIN_VERSION (ALLOW_OLD_GPU_OPERATOR=1)." >&2
+    echo "   After a crash or power loss, a single-node cluster on this version may not come back." >&2
+    return 0
+  fi
+  cat >&2 <<EOF
+❌ GPU_OPERATOR_VERSION=$GPU_OPERATOR_VERSION is older than $GPU_OPERATOR_MIN_VERSION.
+   With CDI enabled, older releases make "nvidia" the default CRI-O runtime for every container. After a crash or
+   power loss, a single-node cluster then doesn't come back (see the comment at the top of this script).
+   Use $GPU_OPERATOR_MIN_VERSION or later, or set ALLOW_OLD_GPU_OPERATOR=1 to install it anyway.
+EOF
+  return 1
+}
+
 install_gpu_operator() {
   echo "▶ 3/4 NVIDIA GPU Operator $GPU_OPERATOR_VERSION"
   cat > "$VALUES_FILE" <<'EOF'
@@ -125,10 +151,13 @@ operator:
 nfd:
   enabled: false                # NFD comes from the Red Hat NFD Operator (steps 1-2)
 cdi:
-  enabled: true
-  default: true
+  enabled: true                 # GPUs reach pods through CDI; "nvidia" is not the default CRI-O runtime
 driver:
   enabled: true                 # driver container, chart default version
+  upgradePolicy:
+    gpuPodDeletion:
+      deleteEmptyDir: true      # GPU pods such as vLLM use emptyDir (/dev/shm, model cache). Without this a driver
+                                # upgrade can't delete them, fails, and leaves the node cordoned on the old driver.
 dcgm:
   enabled: true                 # standalone DCGM host engine, required by egs-gpu-agent
 validator:
@@ -152,10 +181,64 @@ EOF
     -n "$GPU_OPERATOR_NS" --create-namespace -f "$VALUES_FILE"
 }
 
+# On an upgrade, the operator's upgrade controller takes each GPU node through cordon -> delete GPU pods -> restart
+# the driver pod with the new version -> validate -> uncordon, tracked in this node label. A node it can't finish
+# is left in upgrade-failed: still cordoned (on a single-node cluster nothing new can be scheduled) and on the old driver.
+UPGRADE_LABEL=nvidia.com/gpu-driver-upgrade-state
+
+# prints "done", "failed <nodes>" or "waiting: <details>"
+driver_rollout_state() {
+  local want failed states pods
+  failed=$(oc get nodes -l "$UPGRADE_LABEL=upgrade-failed" -o name | tr '\n' ' ')
+  [ -z "$failed" ] || { echo "failed $failed"; return; }
+  want=$(oc get clusterpolicy/cluster-policy -o jsonpath='{.spec.driver.version}')
+  [ -n "$want" ] || { echo "waiting: driver version not readable from the ClusterPolicy yet"; return; }
+  # per driver DaemonSet: image desired updated ready
+  pods=$(oc -n "$GPU_OPERATOR_NS" get ds -l app.kubernetes.io/component=nvidia-driver -o jsonpath='{range .items[*]}{.spec.template.spec.containers[?(@.name=="nvidia-driver-ctr")].image} {.status.desiredNumberScheduled} {.status.updatedNumberScheduled} {.status.numberReady}{"\n"}{end}')
+  states=$(oc get nodes -l feature.node.kubernetes.io/pci-10de.present=true \
+    -o jsonpath="{range .items[*]}{.metadata.name}={.metadata.labels.nvidia\.com/gpu-driver-upgrade-state}{' '}{end}")
+  if [ -n "$pods" ] && echo "$pods" | awk -v want="$want" \
+       '{ if (index($1, ":" want) == 0 || $2 < 1 || $3 != $2 || $4 != $2) bad=1 } END { exit bad }' &&
+     ! echo "$states" | tr ' ' '\n' | grep -vE '^$|=(upgrade-done)?$' | grep -q .; then
+    echo "done"
+  else
+    echo "waiting: driver $want; driver pods [image desired updated ready]: $(echo "$pods" | tr '\n' ' '); upgrade state: $states"
+  fi
+}
+
+wait_driver_rollout() {
+  local end=$((SECONDS + 2700)) s last="" n
+  # a node left in upgrade-failed by an earlier run is retried, now with the policy from this release
+  for n in $(oc get nodes -l "$UPGRADE_LABEL=upgrade-failed" -o name); do
+    echo "   $n: driver upgrade failed in an earlier run; retrying"
+    oc label "$n" "$UPGRADE_LABEL=upgrade-required" --overwrite >/dev/null
+  done
+  while :; do
+    s=$(driver_rollout_state)
+    case $s in
+      done) echo "   driver $(oc get clusterpolicy/cluster-policy -o jsonpath='{.spec.driver.version}') running on every GPU node"
+            return 0 ;;
+      failed*)
+        cat >&2 <<EOF
+❌ GPU driver upgrade failed on: ${s#failed }
+   The node stays cordoned and on the old driver. Usually a GPU pod could not be deleted: a pod not managed by a
+   controller, or a PodDisruptionBudget. Details: oc get events -A --field-selector reason=GPUDriverUpgrade
+   Fix the cause and re-run '$0 apply': it retries failed nodes.
+EOF
+        return 1 ;;
+    esac
+    [ "$s" = "$last" ] || echo "   $(date -u +%H:%M:%SZ) $s"
+    last=$s
+    [ $SECONDS -lt $end ] || { echo "❌ Timed out waiting for the driver rollout: $s" >&2; return 1; }
+    sleep 15
+  done
+}
+
 wait_ready() {
   echo "▶ 4/4 Waiting for the GPU Operator to report ready (driver build takes about 5-10 minutes)"
   # the ClusterPolicy is created shortly after the Helm release; 'oc wait' fails if it does not exist yet
   wait_for "ClusterPolicy cluster-policy to exist" 300 oc get clusterpolicy/cluster-policy
+  wait_driver_rollout
   # The ClusterPolicy can read 'ready' for a moment before the operator has reconciled, so first wait for the
   # real outcome: every NVIDIA node advertises an allocatable nvidia.com/gpu.
   wait_for "nvidia.com/gpu allocatable on every GPU node" 1800 bash -c '
@@ -171,11 +254,25 @@ wait_ready() {
 verify() {
   echo "▶ ClusterPolicy state: $(oc get clusterpolicy/cluster-policy -o jsonpath='{.status.state}')"
   oc get nodes -l nvidia.com/gpu.present=true \
-    -o custom-columns='NODE:.metadata.name,GPU:.status.allocatable.nvidia\.com/gpu,MODEL:.metadata.labels.nvidia\.com/gpu\.product'
+    -o custom-columns='NODE:.metadata.name,GPU:.status.allocatable.nvidia\.com/gpu,MODEL:.metadata.labels.nvidia\.com/gpu\.product,DRIVER-UPGRADE:.metadata.labels.nvidia\.com/gpu-driver-upgrade-state,CORDONED:.spec.unschedulable'
   for p in $(oc -n "$GPU_OPERATOR_NS" get pods -o name | grep nvidia-driver-daemonset || true); do
     oc -n "$GPU_OPERATOR_NS" exec "$p" -c nvidia-driver-ctr -- \
       nvidia-smi --query-gpu=name,driver_version --format=csv,noheader
   done
+  # "nvidia" must not be the default CRI-O runtime, or a single-node cluster can't recover from a crash/power loss
+  local ctr='{.spec.template.spec.containers[?(@.name=="nvidia-container-toolkit-ctr")]' image as_default
+  image=$(oc -n "$GPU_OPERATOR_NS" get ds/nvidia-container-toolkit-daemonset -o jsonpath="$ctr.image}" 2>/dev/null || true)
+  if [ -z "$image" ]; then
+    echo "▶ Container toolkit: no nvidia-container-toolkit-daemonset in $GPU_OPERATOR_NS (toolkit not managed by the operator)"
+    return 0
+  fi
+  as_default=$(oc -n "$GPU_OPERATOR_NS" get ds/nvidia-container-toolkit-daemonset \
+    -o jsonpath="$ctr.env[?(@.name==\"NVIDIA_RUNTIME_SET_AS_DEFAULT\")].value}" 2>/dev/null || true)
+  echo "▶ Container toolkit: ${image##*:}   nvidia as default CRI-O runtime: ${as_default:-true}"
+  if [ "$as_default" != "false" ]; then
+    echo "⚠️  The nvidia runtime is the default CRI-O runtime. Upgrade the GPU Operator to $GPU_OPERATOR_MIN_VERSION or later" \
+         "(re-run '$0 apply'); otherwise a single-node cluster may not come back after a crash or power loss." >&2
+  fi
 }
 
 cuda_test() {
@@ -208,7 +305,7 @@ EOF
 }
 
 case "$ACTION" in
-  apply)     install_nfd_operator; install_nfd_instance; install_gpu_operator; wait_ready; verify
+  apply)     check_gpu_operator_version; install_nfd_operator; install_nfd_instance; install_gpu_operator; wait_ready; verify
              echo "✅ GPU stack ready. Install EGS with --skip-controller-gpu-operator --skip-worker-gpu-operator." ;;
   verify)    verify ;;
   cuda-test) cuda_test ;;
