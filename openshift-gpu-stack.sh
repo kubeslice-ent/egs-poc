@@ -3,16 +3,24 @@
 # Run BEFORE the EGS installer, then install EGS with --skip-controller-gpu-operator / --skip-worker-gpu-operator.
 #
 #   ./openshift-gpu-stack.sh apply      # NFD Operator + NFD instance + GPU Operator, wait until ready
-#   ./openshift-gpu-stack.sh verify     # operator state, GPU nodes, driver version
+#   ./openshift-gpu-stack.sh verify     # operator state, GPU nodes, driver version, container toolkit
 #   ./openshift-gpu-stack.sh cuda-test  # run the CUDA vectorAdd sample pod and clean it up
 #
-# Uses KUBECONFIG / current context. Idempotent: safe to re-run.
-# Optional overrides: GPU_OPERATOR_VERSION (default v25.3.4), GPU_OPERATOR_NS (default egs-gpu-operator),
+# Uses KUBECONFIG / current context. Idempotent: safe to re-run; re-running apply upgrades an older GPU Operator.
+# Optional overrides: GPU_OPERATOR_VERSION (default v26.7.2, minimum v25.10.1), GPU_OPERATOR_NS (default egs-gpu-operator),
 #                     VALUES_FILE (default ./gpu-operator-ocp-values.yaml, also reusable in egs-installer-config.yaml)
+#
+# Why v25.10.1 or later: GPU Operator v25.3.x with CDI enabled (container toolkit v1.17.8) makes "nvidia" the
+# default CRI-O runtime for every container on the node, including etcd and kube-apiserver. After a crash or power
+# loss the NVIDIA kernel module is not loaded yet, the runtime wrapper prints a message on stdout, CRI-O can't parse
+# the container state, and a single-node cluster never comes back (the driver it waits for is loaded by a pod).
+# From v25.10.1 the operator no longer makes "nvidia" the default runtime when CDI is enabled, and the toolkit
+# (v1.18.1+) writes that message to stderr.
 set -euo pipefail
 
 ACTION="${1:-}"
-GPU_OPERATOR_VERSION="${GPU_OPERATOR_VERSION:-v25.3.4}"
+GPU_OPERATOR_VERSION="${GPU_OPERATOR_VERSION:-v26.7.2}"
+GPU_OPERATOR_MIN_VERSION="v25.10.1"
 GPU_OPERATOR_NS="${GPU_OPERATOR_NS:-egs-gpu-operator}"
 VALUES_FILE="${VALUES_FILE:-gpu-operator-ocp-values.yaml}"
 
@@ -115,6 +123,24 @@ EOF
   oc get nodes -l feature.node.kubernetes.io/pci-10de.present=true
 }
 
+check_gpu_operator_version() {
+  local oldest
+  oldest=$(printf '%s\n%s\n' "${GPU_OPERATOR_VERSION#v}" "${GPU_OPERATOR_MIN_VERSION#v}" | sort -V | head -1)
+  [ "$oldest" = "${GPU_OPERATOR_MIN_VERSION#v}" ] && return 0
+  if [ "${ALLOW_OLD_GPU_OPERATOR:-}" = "1" ]; then
+    echo "⚠️  GPU_OPERATOR_VERSION=$GPU_OPERATOR_VERSION is older than $GPU_OPERATOR_MIN_VERSION (ALLOW_OLD_GPU_OPERATOR=1)." >&2
+    echo "   After a crash or power loss, a single-node cluster on this version may not come back." >&2
+    return 0
+  fi
+  cat >&2 <<EOF
+❌ GPU_OPERATOR_VERSION=$GPU_OPERATOR_VERSION is older than $GPU_OPERATOR_MIN_VERSION.
+   With CDI enabled, older releases make "nvidia" the default CRI-O runtime for every container. After a crash or
+   power loss, a single-node cluster then doesn't come back (see the comment at the top of this script).
+   Use $GPU_OPERATOR_MIN_VERSION or later, or set ALLOW_OLD_GPU_OPERATOR=1 to install it anyway.
+EOF
+  return 1
+}
+
 install_gpu_operator() {
   echo "▶ 3/4 NVIDIA GPU Operator $GPU_OPERATOR_VERSION"
   cat > "$VALUES_FILE" <<'EOF'
@@ -125,8 +151,7 @@ operator:
 nfd:
   enabled: false                # NFD comes from the Red Hat NFD Operator (steps 1-2)
 cdi:
-  enabled: true
-  default: true
+  enabled: true                 # GPUs reach pods through CDI; "nvidia" is not the default CRI-O runtime
 driver:
   enabled: true                 # driver container, chart default version
 dcgm:
@@ -176,6 +201,20 @@ verify() {
     oc -n "$GPU_OPERATOR_NS" exec "$p" -c nvidia-driver-ctr -- \
       nvidia-smi --query-gpu=name,driver_version --format=csv,noheader
   done
+  # "nvidia" must not be the default CRI-O runtime, or a single-node cluster can't recover from a crash/power loss
+  local ctr='{.spec.template.spec.containers[?(@.name=="nvidia-container-toolkit-ctr")]' image as_default
+  image=$(oc -n "$GPU_OPERATOR_NS" get ds/nvidia-container-toolkit-daemonset -o jsonpath="$ctr.image}" 2>/dev/null || true)
+  if [ -z "$image" ]; then
+    echo "▶ Container toolkit: no nvidia-container-toolkit-daemonset in $GPU_OPERATOR_NS (toolkit not managed by the operator)"
+    return 0
+  fi
+  as_default=$(oc -n "$GPU_OPERATOR_NS" get ds/nvidia-container-toolkit-daemonset \
+    -o jsonpath="$ctr.env[?(@.name==\"NVIDIA_RUNTIME_SET_AS_DEFAULT\")].value}" 2>/dev/null || true)
+  echo "▶ Container toolkit: ${image##*:}   nvidia as default CRI-O runtime: ${as_default:-true}"
+  if [ "$as_default" != "false" ]; then
+    echo "⚠️  The nvidia runtime is the default CRI-O runtime. Upgrade the GPU Operator to $GPU_OPERATOR_MIN_VERSION or later" \
+         "(re-run '$0 apply'); otherwise a single-node cluster may not come back after a crash or power loss." >&2
+  fi
 }
 
 cuda_test() {
@@ -208,7 +247,7 @@ EOF
 }
 
 case "$ACTION" in
-  apply)     install_nfd_operator; install_nfd_instance; install_gpu_operator; wait_ready; verify
+  apply)     check_gpu_operator_version; install_nfd_operator; install_nfd_instance; install_gpu_operator; wait_ready; verify
              echo "✅ GPU stack ready. Install EGS with --skip-controller-gpu-operator --skip-worker-gpu-operator." ;;
   verify)    verify ;;
   cuda-test) cuda_test ;;
