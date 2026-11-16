@@ -40,6 +40,7 @@
 | **🔐 Security** | [Prometheus TLS Authentication](docs/Prometheus-TLS-Authentication.md) | TLS setup for Prometheus |
 | **🔧 Troubleshooting** | [Troubleshooting Guide](docs/Troubleshooting-README.md) | Generate diagnostic bundles for support |
 | **📦 Airgap** | [Airgap Image Management](airgap-image-push/README-airgap-images.md) | Airgap image pull and push |
+| **🧩 Add-on** | [Smart Scaler App Runbook](docs/Smart-Scaler-App-Installation-Runbook.md) | Install the Smart Scaler backend and UI on the EGS controller cluster (OpenShift) |
 
 📚 **User Guide:** [docs.avesha.io/documentation/enterprise-egs](https://docs.avesha.io/documentation/enterprise-egs)
 
