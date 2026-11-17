@@ -558,6 +558,25 @@ spec:
                       type: string
                   type: object
                 type: array
+              endpoint:
+                description: Endpoint is the URL host the protected ingress is reachable
+                  at
+                properties:
+                  clusterName:
+                    description: ClusterName is the gateway cluster serving the endpoint
+                    type: string
+                  host:
+                    description: Host is the endpoint host; empty until the gateway
+                      cluster publishes it
+                    type: string
+                  ready:
+                    description: Ready is true when the gateway serves the host and
+                      a placed cluster serves the workload
+                    type: boolean
+                  reason:
+                    description: Reason explains why the endpoint is not ready
+                    type: string
+                type: object
               message:
                 description: Message is the message for the failure of the workload
                   placement

@@ -652,6 +652,46 @@ spec:
                   - type
                   type: object
                 type: array
+              endpoint:
+                description: Endpoint is the public workload endpoint served through
+                  this gateway, set by the gateway cluster
+                properties:
+                  host:
+                    description: Host is the Ingress host on the gateway cluster
+                    maxLength: 253
+                    type: string
+                  ingress:
+                    description: Ingress is the Ingress serving the host on the gateway
+                      cluster
+                    properties:
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                    required:
+                    - name
+                    - namespace
+                    type: object
+                  lastUpdateTime:
+                    description: LastUpdateTime is when the endpoint was last written
+                    format: date-time
+                    type: string
+                  observedGeneration:
+                    description: ObservedGeneration is the generation of the gateway
+                      cluster's SliceNSGateway this describes
+                    format: int64
+                    type: integer
+                  ready:
+                    description: Ready is true when the Ingress, gateway and DNS record
+                      are all in place
+                    type: boolean
+                  reason:
+                    description: Reason explains why the endpoint is not ready
+                    type: string
+                required:
+                - host
+                - ready
+                type: object
               gatewayRef:
                 description: GatewayRef is the resolved gateway reference
                 properties:

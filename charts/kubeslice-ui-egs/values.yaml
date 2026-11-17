@@ -253,7 +253,7 @@ kubeslice:
     # Component registry override; other images use global.imageRegistry.
     imageRegistry: harbor.saas1.smart-scaler.io/avesha/aveshadev
     image: kubeslice-api-gw-ent-egs
-    tag: 1.19.0-RELEASE-6709752f
+    tag: 1.19.0-RELEASE-37de6fa8
     pullPolicy: IfNotPresent
     workloadEndpointDatabase:
       enabled: true

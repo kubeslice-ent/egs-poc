@@ -142,6 +142,15 @@ rules:
   - get
   - patch
   - update
+# Workload endpoint host published by the gateway cluster
+- apiGroups:
+  - worker.kubeslice.io
+  resources:
+  - workerslicensgateways
+  verbs:
+  - get
+  - list
+  - watch
 - apiGroups:
   - controller.kubeslice.io
   resources:
