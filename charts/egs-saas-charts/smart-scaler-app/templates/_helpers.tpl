@@ -11,6 +11,70 @@ existing one the caller already manages.
 {{- end -}}
 
 {{/*
+mysql and dbMigration (added in 0.3.0) are read nil-safe too: with `--reuse-values` from an
+older release both keys are absent, so both stay off and the backend keeps using
+backend.mysql.* exactly as before.
+*/}}
+
+{{/*
+"true" when the chart runs its own MySQL, else "".
+*/}}
+{{- define "smart-scaler-app.mysqlEnabled" -}}
+{{- if (.Values.mysql | default dict).enabled }}true{{ end -}}
+{{- end -}}
+
+{{/*
+In-cluster MySQL Service name and DNS name.
+*/}}
+{{- define "smart-scaler-app.mysqlName" -}}
+{{ .Release.Name }}-mysql
+{{- end -}}
+
+{{- define "smart-scaler-app.mysqlHost" -}}
+{{ include "smart-scaler-app.mysqlName" . }}.{{ .Release.Namespace }}.svc.cluster.local
+{{- end -}}
+
+{{/*
+The five MYSQL_* env vars, shared by the backend and its dbMigration init container. With the
+in-cluster MySQL, host and port are set here rather than read from the Secret, so an
+existingSecret does not need (and cannot get wrong) MYSQL_HOSTNAME/MYSQL_PORT.
+*/}}
+{{- define "smart-scaler-app.mysqlEnv" -}}
+{{- $secret := include "smart-scaler-app.backendSecretName" . -}}
+- name: MYSQL_USERNAME
+  valueFrom: { secretKeyRef: { name: {{ $secret }}, key: MYSQL_USERNAME } }
+- name: MYSQL_PASSWORD
+  valueFrom: { secretKeyRef: { name: {{ $secret }}, key: MYSQL_PASSWORD } }
+{{- if include "smart-scaler-app.mysqlEnabled" . }}
+- name: MYSQL_HOSTNAME
+  value: {{ include "smart-scaler-app.mysqlHost" . | quote }}
+- name: MYSQL_PORT
+  value: "3306"
+{{- else }}
+- name: MYSQL_HOSTNAME
+  valueFrom: { secretKeyRef: { name: {{ $secret }}, key: MYSQL_HOSTNAME } }
+- name: MYSQL_PORT
+  valueFrom: { secretKeyRef: { name: {{ $secret }}, key: MYSQL_PORT } }
+{{- end }}
+- name: MYSQL_DBNAME
+  valueFrom: { secretKeyRef: { name: {{ $secret }}, key: MYSQL_DBNAME } }
+{{- end -}}
+
+{{/*
+Rejects MySQL settings that contradict each other. Renders nothing.
+*/}}
+{{- define "smart-scaler-app.validateMySQL" -}}
+{{- if include "smart-scaler-app.mysqlEnabled" . -}}
+{{- if .Values.backend.mysql.hostname -}}
+{{- fail (printf "backend.mysql.hostname is %q but mysql.enabled=true runs MySQL in the cluster: leave hostname empty, or set mysql.enabled=false to use that MySQL" .Values.backend.mysql.hostname) -}}
+{{- end -}}
+{{- if and (not .Values.backend.secrets.existingSecret) (eq (lower (toString .Values.backend.mysql.username)) "root") -}}
+{{- fail "backend.mysql.username must not be \"root\" with mysql.enabled=true: the MySQL image creates it as an extra application user, and root already exists" -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
 Every value added in 0.2.0 is read nil-safe (`| default dict`, `| default "<0.1.0 value>"`):
 `helm upgrade --reuse-values` from a 0.1.0 release reuses the old values, which have no
 route/ui.serviceAccount/ginMode/appEnv keys, and must behave like 0.1.0 (default

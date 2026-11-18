@@ -49,8 +49,15 @@ backend:
     requests: { cpu: 200m, memory: 512Mi }
     limits: { cpu: 1, memory: 1Gi }
 
+  # The backend's MySQL database. Real credentials required - left blank on purpose, see
+  # file header.
+  # - mysql.enabled=true (default): leave hostname empty and port unchanged; the chart points
+  #   them at its own in-cluster MySQL. username/password/dbname become that MySQL's
+  #   application user and database, created on its first start only: changing them later
+  #   does not change the database. username must not be "root".
+  # - mysql.enabled=false: set all five to your own MySQL 8.x. The user needs full rights on
+  #   dbname (dbMigration creates and alters its tables).
   mysql:
-    # Real credentials required - left blank on purpose, see file header.
     hostname: ""
     port: 3306
     username: ""
@@ -58,9 +65,12 @@ backend:
     dbname: ""
 
   secrets:
-    # Set to reuse an existing Secret (must have the same keys this chart would create:
-    # ACCESS_TOKEN_SECRET, REFRESH_TOKEN_SECRET, ENCRYPTION_SECRET) instead of templating
-    # one from the values below.
+    # Set to reuse an existing Secret instead of templating one from backend.mysql.* and the
+    # values below. It must have every key the backend reads: MYSQL_USERNAME,
+    # MYSQL_PASSWORD, MYSQL_HOSTNAME, MYSQL_PORT, MYSQL_DBNAME, ACCESS_TOKEN_SECRET,
+    # REFRESH_TOKEN_SECRET and ENCRYPTION_SECRET (exactly 32 characters). With
+    # mysql.enabled=true, MYSQL_HOSTNAME and MYSQL_PORT are not read (the chart uses the
+    # in-cluster MySQL Service) and may be left out.
     existingSecret: ""
     accessTokenSecret: ""
     refreshTokenSecret: ""
@@ -113,6 +123,47 @@ ui:
   googleClientId: "disabled"
   githubClientId: "disabled"
   githubRedirectUri: "http://disabled"
+
+# In-cluster MySQL for the backend: one StatefulSet replica with a PersistentVolumeClaim, and
+# a ClusterIP Service <release>-mysql on port 3306. On its first start it creates the database
+# and application user from backend.mysql.* (or backend.secrets.existingSecret); the root
+# password is random and not needed. Runs under OpenShift's default restricted-v2 SCC, so no
+# SCC grant is needed. Set enabled=false to use your own MySQL (backend.mysql.hostname).
+# helm uninstall keeps the PVC (data-<release>-mysql-0), so a reinstall finds the old data.
+mysql:
+  enabled: true
+  image:
+    # Official MySQL 8.4 LTS image, through the harbor.saas1 Docker Hub proxy cache.
+    repository: harbor.saas1.smart-scaler.io/avesha/library/mysql
+    tag: "8.4.13"
+    pullPolicy: IfNotPresent
+  persistence:
+    # false = emptyDir: every MySQL pod restart deletes all users and organizations. Tests only.
+    enabled: true
+    # "" = the cluster's default StorageClass.
+    storageClass: ""
+    size: 8Gi
+  # Rendered only when set. On OpenShift leave both empty: restricted-v2 assigns the UID.
+  podSecurityContext: {}
+  securityContext: {}
+  resources:
+    requests: { cpu: 100m, memory: 512Mi }
+    limits: { cpu: 1, memory: 1Gi }
+
+# Creates and updates the backend's tables. The backend never does (its AutoMigrate call is
+# disabled), so without this a new database stays empty and sign-up fails. Runs the
+# smart-scaler/saas-db-migrations program (the one the SaaS clusters run as a Job) as an init
+# container of the backend pod, so the tables exist before the backend starts. Idempotent:
+# it runs again on every backend pod start. Uses backend.podSecurityContext/securityContext.
+dbMigration:
+  enabled: true
+  image:
+    repository: harbor.saas1.smart-scaler.io/avesha/aveshasystems/saas-db-migrations
+    tag: v2.0.0
+    pullPolicy: IfNotPresent
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: { cpu: 500m, memory: 256Mi }
 
 egs:
   # Namespace where kubeslice-api-gw already runs (egs-controller/egs-ui chart release).

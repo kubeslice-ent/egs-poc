@@ -47,14 +47,41 @@ Then re-run with both set, e.g.:
 
 {{- end }}
 
-To exercise the stack:
-  1. Open the UI, sign up with a real email/password (no SMTP here, so
-     SKIP_EMAIL_VERIFICATION={{ .Values.backend.skipEmailVerification }} marks the account
-     verified automatically).
-  2. Signup kicks off an async EGS workspace-creation flow against
-     http://kubeslice-api-gw.{{ .Values.egs.namespace }}.svc.cluster.local:8080 - a new
-     tenant-<hash> workspace appears shortly after.
-  3. Sign in and try deploying a model from the panel.
+{{- $migration := (.Values.dbMigration | default dict) }}
+
+Database:
+{{- if include "smart-scaler-app.mysqlEnabled" . }}
+*  In-cluster MySQL {{ include "smart-scaler-app.mysqlHost" . }}:3306 (StatefulSet
+   {{ include "smart-scaler-app.mysqlName" . }}{{ if (.Values.mysql.persistence | default dict).enabled }}, PVC data-{{ include "smart-scaler-app.mysqlName" . }}-0 - kept by helm uninstall{{ else }}, emptyDir - data is lost on every MySQL pod restart{{ end }}).
+{{- else }}
+*  External MySQL from Secret {{ include "smart-scaler-app.backendSecretName" . }} (MYSQL_HOSTNAME/MYSQL_PORT).
+{{- end }}
+{{- if $migration.enabled }}
+*  Tables: created/updated by the backend pod's db-migration init container on every start.
+   kubectl logs -n {{ .Release.Namespace }} deploy/{{ .Release.Name }}-backend -c db-migration | tail -n 3
+{{- else }}
+*  Tables: NOT managed by this release (dbMigration is not enabled). An empty database makes
+   sign-up fail with HTTP 500: enable dbMigration, or run smart-scaler/saas-db-migrations.
+{{- end }}
+
+Open the Smart Scaler UI{{ with $uiURL }} at {{ . }}{{ end }}:
+  1. First visit: "Create an account" -> Full Name, Email, Company Name, Password
+     (8+ characters with an upper-case letter, a lower-case letter, a digit and a special
+     character). Each email domain gets one organization; further sign-ups from the same
+     domain are refused, except gmail.com/outlook.com/yahoo.com/... and
+     backend.domainExclusionList ({{ .Values.backend.domainExclusionList | default "none" }}).
+{{- if eq (toString .Values.backend.skipEmailVerification) "true" }}
+  2. The page then says "check your email". No email is sent here
+     (SKIP_EMAIL_VERIFICATION=true marks the account verified), so go straight to Sign In.
+{{- else }}
+  2. Click the link in the verification email (needs SMTP), then Sign In.
+{{- end }}
+  3. Sign in with the same email and password. The person who signs up is the admin of
+     the new organization.
+  4. In the background, sign-up creates an EGS workspace named after the organization's
+     tenant, on every registered EGS cluster, through
+     http://kubeslice-api-gw.{{ .Values.egs.namespace }}.svc.cluster.local:8080. Check it with:
+     kubectl logs -n {{ .Release.Namespace }} deploy/{{ .Release.Name }}-backend -c backend | grep -i "EGS workspace"
 
 If backend's EGS calls start 401ing, egs.adminToken is no longer valid. Use the long-lived
 token from the kubeslice-rbac-rw-admin Secret in kubeslice-<project> (not

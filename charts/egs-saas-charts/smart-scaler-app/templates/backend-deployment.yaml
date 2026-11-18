@@ -1,3 +1,4 @@
+{{- include "smart-scaler-app.validateMySQL" . }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -20,6 +21,57 @@ spec:
       {{- with .Values.backend.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- $migration := (.Values.dbMigration | default dict) }}
+      {{- if or (include "smart-scaler-app.mysqlEnabled" .) $migration.enabled }}
+      initContainers:
+        {{- if include "smart-scaler-app.mysqlEnabled" . }}
+        # Waits for the in-cluster MySQL to accept connections (its first start initializes
+        # the data directory first). mysqladmin ping succeeds even without credentials.
+        - name: wait-for-mysql
+          image: "{{ .Values.mysql.image.repository }}:{{ .Values.mysql.image.tag }}"
+          imagePullPolicy: {{ .Values.mysql.image.pullPolicy }}
+          {{- with .Values.backend.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          command:
+            - sh
+            - -c
+            - |
+              until mysqladmin ping --connect-timeout=5 -h "$MYSQL_HOSTNAME" -P "$MYSQL_PORT" --silent; do
+                echo "waiting for MySQL at $MYSQL_HOSTNAME:$MYSQL_PORT"; sleep 3
+              done
+          env:
+            - name: MYSQL_HOSTNAME
+              value: {{ include "smart-scaler-app.mysqlHost" . | quote }}
+            - name: MYSQL_PORT
+              value: "3306"
+          resources:
+            requests: { cpu: 10m, memory: 32Mi }
+            limits: { cpu: 100m, memory: 128Mi }
+        {{- end }}
+        {{- if $migration.enabled }}
+        # Creates/updates the tables (see dbMigration in values.yaml). Exits non-zero on any
+        # error, and the backend container does not start until it succeeds.
+        - name: db-migration
+          image: "{{ $migration.image.repository }}:{{ $migration.image.tag }}"
+          imagePullPolicy: {{ $migration.image.pullPolicy }}
+          {{- with .Values.backend.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          env:
+            {{- include "smart-scaler-app.mysqlEnv" . | nindent 12 }}
+            # Not used by the migration itself, but the shared smart-scaler/apis package it
+            # imports panics at startup unless this is a 32-byte key.
+            - name: ENCRYPTION_SECRET
+              valueFrom: { secretKeyRef: { name: {{ include "smart-scaler-app.backendSecretName" . }}, key: ENCRYPTION_SECRET } }
+          {{- with $migration.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        {{- end }}
       {{- end }}
       containers:
         - name: backend
@@ -46,16 +98,7 @@ spec:
             # kubeslice-api-gw from the already-deployed egs-controller/egs-ui release.
             - name: EGS_BACKEND_URL
               value: "http://kubeslice-api-gw.{{ .Values.egs.namespace }}.svc.cluster.local:8080"
-            - name: MYSQL_USERNAME
-              valueFrom: { secretKeyRef: { name: {{ include "smart-scaler-app.backendSecretName" . }}, key: MYSQL_USERNAME } }
-            - name: MYSQL_PASSWORD
-              valueFrom: { secretKeyRef: { name: {{ include "smart-scaler-app.backendSecretName" . }}, key: MYSQL_PASSWORD } }
-            - name: MYSQL_HOSTNAME
-              valueFrom: { secretKeyRef: { name: {{ include "smart-scaler-app.backendSecretName" . }}, key: MYSQL_HOSTNAME } }
-            - name: MYSQL_PORT
-              valueFrom: { secretKeyRef: { name: {{ include "smart-scaler-app.backendSecretName" . }}, key: MYSQL_PORT } }
-            - name: MYSQL_DBNAME
-              valueFrom: { secretKeyRef: { name: {{ include "smart-scaler-app.backendSecretName" . }}, key: MYSQL_DBNAME } }
+            {{- include "smart-scaler-app.mysqlEnv" . | nindent 12 }}
             - name: ACCESS_TOKEN_SECRET
               valueFrom: { secretKeyRef: { name: {{ include "smart-scaler-app.backendSecretName" . }}, key: ACCESS_TOKEN_SECRET } }
             - name: REFRESH_TOKEN_SECRET
