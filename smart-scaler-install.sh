@@ -106,7 +106,7 @@ preflight() {
   else warn "$APP_HOST does not resolve from this workstation: the last check (HTTPS) will fail until DNS or VPN is fixed"; fi
 
   [ -f "$CHART/Chart.yaml" ] || die "chart not found at $CHART"
-  ok "chart: smart-scaler-app $(yq '.version' "$CHART/Chart.yaml")"
+  ok "chart: smart-scaler-app $(yq '.version' < "$CHART/Chart.yaml")"
 }
 
 release_installed() { helm status "$RELEASE" -n "$NAMESPACE" >/dev/null 2>&1; }
@@ -201,7 +201,7 @@ install() {
     step 5 "Install"
     ok "already installed ($(helm list -n "$NAMESPACE" -f "^$RELEASE\$" -o json | jq -r '.[0].chart'))"
   else
-    if [ "$(yq '.egs.manageAdminSecret' "$VALUES")" = "false" ] && ! admin_secret_ok; then
+    if [ "$(yq '.egs.manageAdminSecret' < "$VALUES")" = "false" ] && ! admin_secret_ok; then
       die "$VALUES expects an existing Secret egs-admin-details (key 'token') in $ADMIN_NAMESPACE, but it is missing. Create it again, or set egs.manageAdminSecret to true and egs.adminToken in the values file"
     fi
     helm lint "$CHART" -f "$VALUES" >/dev/null 2>&1 || { helm lint "$CHART" -f "$VALUES" || true; die "helm lint failed"; }
