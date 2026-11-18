@@ -1,0 +1,103 @@
+{{- if include "smart-scaler-app.mysqlEnabled" . }}
+{{- $name := include "smart-scaler-app.mysqlName" . }}
+{{- $secret := include "smart-scaler-app.backendSecretName" . }}
+{{- $persistence := .Values.mysql.persistence | default dict }}
+# In-cluster MySQL for the backend (mysql.enabled=true). Reachable only inside the cluster.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ $name }}
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ $name }}
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: mysql
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ $name }}
+spec:
+  replicas: 1
+  serviceName: {{ $name }}
+  selector:
+    matchLabels:
+      app: {{ $name }}
+  template:
+    metadata:
+      labels:
+        app: {{ $name }}
+    spec:
+      # Lets MySQL flush and shut down cleanly before it is killed.
+      terminationGracePeriodSeconds: 60
+      {{- with .Values.mysql.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: mysql
+          image: "{{ .Values.mysql.image.repository }}:{{ .Values.mysql.image.tag }}"
+          imagePullPolicy: {{ .Values.mysql.image.pullPolicy }}
+          {{- with .Values.mysql.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          env:
+            # Used on the first start only (empty data directory), like the official image.
+            - name: MYSQL_RANDOM_ROOT_PASSWORD
+              value: "yes"
+            - name: MYSQL_DATABASE
+              valueFrom: { secretKeyRef: { name: {{ $secret }}, key: MYSQL_DBNAME } }
+            - name: MYSQL_USER
+              valueFrom: { secretKeyRef: { name: {{ $secret }}, key: MYSQL_USERNAME } }
+            - name: MYSQL_PASSWORD
+              valueFrom: { secretKeyRef: { name: {{ $secret }}, key: MYSQL_PASSWORD } }
+          ports:
+            - name: mysql
+              containerPort: 3306
+          # The first start initializes the data directory with networking off, so the port
+          # only opens once MySQL is ready to serve.
+          startupProbe:
+            tcpSocket: { port: mysql }
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            tcpSocket: { port: mysql }
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket: { port: mysql }
+            periodSeconds: 20
+            failureThreshold: 6
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+          resources:
+            {{- toYaml .Values.mysql.resources | nindent 12 }}
+      {{- if not $persistence.enabled }}
+      volumes:
+        - name: data
+          emptyDir: {}
+      {{- end }}
+  {{- if $persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- with $persistence.storageClass }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ $persistence.size | default "8Gi" }}
+  {{- end }}
+{{- end }}
