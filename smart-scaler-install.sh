@@ -5,6 +5,7 @@
 #
 #   ./smart-scaler-install.sh --kubeconfig <controller-kubeconfig>
 #   ./smart-scaler-install.sh --kubeconfig <controller-kubeconfig> --verify-only
+#   ./smart-scaler-install.sh --kubeconfig <controller-kubeconfig> --uninstall [--delete-data]
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -17,6 +18,9 @@ CHART="$SCRIPT_DIR/charts/egs-saas-charts/smart-scaler-app"
 STORAGE_CLASS=""
 DOMAIN_EXCLUSION_LIST="avesha.io"
 VERIFY_ONLY=false
+UNINSTALL=false
+DELETE_DATA=false
+ASSUME_YES=false
 KUBECONFIG_ARG=""
 
 usage() {
@@ -31,6 +35,9 @@ Usage: $0 --kubeconfig <path> [options]
                                comma-separated, no spaces (default: $DOMAIN_EXCLUSION_LIST)
   --chart <dir>                chart directory (default: the chart next to this script)
   --verify-only                only run the verification of an existing install
+  --uninstall                  remove Smart Scaler. Keeps the database volume and both namespaces
+  --delete-data                with --uninstall: also delete both namespaces and the database volume
+  --yes                        with --uninstall: don't ask for confirmation
   -h, --help                   show this help
 EOF
 }
@@ -44,6 +51,9 @@ while [ $# -gt 0 ]; do
     --domain-exclusion) DOMAIN_EXCLUSION_LIST="${2?}"; shift 2 ;;
     --chart) CHART="${2:?}"; shift 2 ;;
     --verify-only) VERIFY_ONLY=true; shift ;;
+    --uninstall) UNINSTALL=true; shift ;;
+    --delete-data) DELETE_DATA=true; shift ;;
+    --yes) ASSUME_YES=true; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -56,6 +66,8 @@ warn() { echo "  ${Y}WARN${N}  $*"; }
 die()  { echo "  ${R}FAIL${N}  $*" >&2; echo >&2; echo "Stopped. Nothing further was changed. See section 4, Troubleshooting, in the runbook." >&2; exit 1; }
 
 [ -n "$KUBECONFIG_ARG" ] || { usage >&2; exit 2; }
+if [ "$DELETE_DATA" = true ] && [ "$UNINSTALL" != true ]; then echo "--delete-data can only be used with --uninstall" >&2; exit 2; fi
+if [ "$UNINSTALL" = true ] && [ "$VERIFY_ONLY" = true ]; then echo "--uninstall and --verify-only cannot be combined" >&2; exit 2; fi
 [ -f "$KUBECONFIG_ARG" ] || { echo "Kubeconfig not found: $KUBECONFIG_ARG" >&2; exit 2; }
 export KUBECONFIG="$(cd "$(dirname "$KUBECONFIG_ARG")" && pwd)/$(basename "$KUBECONFIG_ARG")"
 VALUES="$WORKDIR/smart-scaler-values.yaml"
@@ -257,6 +269,63 @@ verify() {
     exit 1
   fi
 }
+
+# ---------------------------------------------------------------- uninstall
+# Removes Smart Scaler only: its Helm release, the UI's anyuid grant and, with --delete-data, its two
+# namespaces. It never touches EGS and never runs openshift-scc-grants.sh revoke.
+uninstall() {
+  local t
+  for t in oc helm; do command -v "$t" >/dev/null || die "'$t' is not installed on this workstation"; done
+  oc whoami >/dev/null 2>&1 || die "cannot reach the cluster with $KUBECONFIG"
+  [ "$(oc auth can-i '*' '*' --all-namespaces 2>/dev/null)" = "yes" ] || die "this user is not cluster-admin"
+
+  echo
+  echo "${B}Uninstall Smart Scaler${N} from $(oc whoami --show-server)"
+  echo "  Removes:  Helm release '$RELEASE' in $NAMESPACE, and the anyuid grant of the UI ServiceAccount"
+  if [ "$DELETE_DATA" = true ]; then
+    echo "  ${R}Deletes:${N}  namespaces $NAMESPACE and $ADMIN_NAMESPACE, with the database volume:"
+    echo "            every Smart Scaler user and organization is lost"
+  else
+    echo "  Keeps:    the database volume (all users and organizations) and both namespaces"
+  fi
+  echo "  Keeps:    EGS, its grants, and the EGS tenant-* workspaces created by sign-ups"
+  echo "  Keeps:    the values file $VALUES"
+  if [ "$ASSUME_YES" != true ]; then
+    local answer=""
+    read -r -p "Type 'yes' to continue: " answer || true
+    [ "$answer" = "yes" ] || { echo "Cancelled. Nothing was changed."; exit 1; }
+  fi
+  echo
+
+  if release_installed; then
+    helm uninstall "$RELEASE" -n "$NAMESPACE" --wait >/dev/null || die "helm uninstall failed"
+    ok "Helm release '$RELEASE' removed"
+  else
+    ok "Helm release '$RELEASE' was not installed"
+  fi
+  oc adm policy remove-scc-from-user anyuid "system:serviceaccount:$NAMESPACE:smart-scaler-ui" >/dev/null 2>&1 || true
+  if oc get clusterrolebinding system:openshift:scc:anyuid -o jsonpath='{range .subjects[*]}{.namespace}/{.name}{"\n"}{end}' 2>/dev/null \
+      | grep -qx "$NAMESPACE/smart-scaler-ui"; then die "the anyuid grant of the UI ServiceAccount is still there"; fi
+  ok "anyuid grant of the UI ServiceAccount removed"
+
+  if [ "$DELETE_DATA" = true ]; then
+    oc delete namespace "$NAMESPACE" "$ADMIN_NAMESPACE" --ignore-not-found --timeout=10m >/dev/null || die "could not delete the namespaces"
+    ok "namespaces $NAMESPACE and $ADMIN_NAMESPACE deleted, with the database volume"
+    echo
+    echo "${G}${B}Smart Scaler and its data are removed.${N}"
+    echo "  The values file is kept. Delete it if you don't plan to reinstall: $VALUES"
+  else
+    if oc get pvc "data-$RELEASE-mysql-0" -n "$NAMESPACE" >/dev/null 2>&1; then ok "database volume data-$RELEASE-mysql-0 kept"; fi
+    echo
+    echo "${G}${B}Smart Scaler is removed. Its data is kept.${N}"
+    echo "  To get it back with the same users, run the installer again with the same values file: $VALUES"
+  fi
+}
+
+if [ "$UNINSTALL" = true ]; then
+  uninstall
+  exit 0
+fi
 
 preflight
 if [ "$VERIFY_ONLY" = true ]; then

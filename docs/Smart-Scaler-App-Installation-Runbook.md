@@ -11,7 +11,7 @@ This runbook installs the Smart Scaler app on the EGS controller cluster. One in
 | Chart | `smart-scaler-app` 0.3.0 (app version 3.3.0), from the egs-poc repository |
 | Time needed | About 10 minutes. The installer itself took about 2 minutes on dell-poc |
 | Result | The Smart Scaler UI at `https://smart-scaler.apps.<cluster-domain>` |
-| Validated | Uninstall, then Steps 1 to 4 of this runbook, on the dell-poc controller cluster (OpenShift 4.20.42), 18 November 2026 |
+| Validated | Steps 1 to 4, and an uninstall followed by a reinstall that kept the users, on the dell-poc controller cluster (OpenShift 4.20.42), 18 November 2026 |
 
 > **IMPORTANT** This is a proof-of-concept setup: debug mode, development images, and a single MySQL pod with no backups. Don't use it as-is for production or customer environments.
 
@@ -127,17 +127,17 @@ Run these from the `egs-poc` directory, with `KUBECONFIG` set to the controller 
 #### Uninstall
 
 ```bash
-helm uninstall smart-scaler -n smart-scaler-backend
-oc adm policy remove-scc-from-user anyuid system:serviceaccount:smart-scaler-backend:smart-scaler-ui
+./smart-scaler-install.sh --kubeconfig <absolute-path-to-controller-kubeconfig> --uninstall
 ```
 
-This keeps the database volume, with every user and organization. A later install with the same values file finds them again: the installer reuses the values file if it is still in `~/smart-scaler-run`.
+The script lists what it will remove and what it keeps, then asks you to type `yes`.
 
-To also delete all Smart Scaler data:
+| Command | Removes | Keeps |
+|---|---|---|
+| `--uninstall` | The Smart Scaler pods, Services and Routes, and the UI's `anyuid` grant | The database volume with every user and organization, both namespaces, the values file |
+| `--uninstall --delete-data` | The same, plus both namespaces and the database volume: every user and organization is lost | The values file |
 
-```bash
-oc delete namespace smart-scaler-backend smart-scaler-controller
-```
+After a plain `--uninstall`, run the installer again to get Smart Scaler back with the same users. It reuses the values file in `~/smart-scaler-run`.
 
 Neither command touches EGS: the EGS releases and their grants stay as they are. The EGS `tenant-*` workspaces created by sign-ups also stay in EGS.
 
@@ -156,7 +156,7 @@ Neither command touches EGS: the EGS releases and their grants stay as they are.
 | `no default StorageClass` | Run `oc get storageclass`, then run the installer again with `--storage-class <name>` |
 | `cannot read the EGS admin token` | Check that the EGS project is `avesha`. If not, add `--project <name>` |
 | `release 'smart-scaler' is installed but … is missing` | Restore the values file from your backup to `~/smart-scaler-run/` |
-| `a MySQL volume from an earlier install exists` | Restore the values file. Or delete the volume, which deletes all Smart Scaler data: `oc delete pvc data-smart-scaler-mysql-0 -n smart-scaler-backend` |
+| `a MySQL volume from an earlier install exists` | Restore the values file. Or run the script with `--uninstall --delete-data`, which deletes all Smart Scaler data |
 | `MySQL did not become ready` | Run `oc get pod,pvc -n smart-scaler-backend`. A volume in `Pending` means a storage problem. `ImagePullBackOff` means the nodes can't reach `harbor.saas1.smart-scaler.io` on port 443 |
 | `the backend did not become ready` | Run `oc logs deploy/smart-scaler-backend -n smart-scaler-backend -c db-migration`. `Access denied` means the values file doesn't match the existing database volume |
 | `https://… -> 000` or `503` in stage 6 | The hostname doesn't resolve from your workstation, or the UI is still starting. Check DNS and VPN, then run with `--verify-only` |
@@ -187,6 +187,9 @@ The backend log shows errors about Redis, sending email, the billing service, no
 | `--storage-class <name>` | StorageClass for the MySQL volume | The cluster's default class |
 | `--domain-exclusion <list>` | Email domains that may have several organizations. Comma-separated, no spaces | `avesha.io` |
 | `--verify-only` | Only run the checks on an existing install | |
+| `--uninstall` | Remove Smart Scaler and keep its data | |
+| `--delete-data` | With `--uninstall`: also delete both namespaces and the database volume | |
+| `--yes` | With `--uninstall`: don't ask for confirmation | |
 
 #### What gets installed
 
