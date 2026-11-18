@@ -36,7 +36,7 @@ Usage: $0 --kubeconfig <path> [options]
   --chart <dir>                chart directory (default: the chart next to this script)
   --verify-only                only run the verification of an existing install
   --uninstall                  remove Smart Scaler. Keeps the database volume and both namespaces
-  --delete-data                with --uninstall: also delete both namespaces and the database volume
+  --delete-data                with --uninstall: also delete the smart-scaler-backend namespace and the database volume
   --yes                        with --uninstall: don't ask for confirmation
   -h, --help                   show this help
 EOF
@@ -137,6 +137,10 @@ prepare() {
   fi
 }
 
+admin_secret_ok() {
+  [ -n "$(oc get secret egs-admin-details -n "$ADMIN_NAMESPACE" -o jsonpath='{.data.token}' 2>/dev/null)" ]
+}
+
 # ---------------------------------------------------------------- 3. values file
 make_values() {
   step 3 "Values file"
@@ -197,6 +201,9 @@ install() {
     step 5 "Install"
     ok "already installed ($(helm list -n "$NAMESPACE" -f "^$RELEASE\$" -o json | jq -r '.[0].chart'))"
   else
+    if [ "$(yq '.egs.manageAdminSecret' "$VALUES")" = "false" ] && ! admin_secret_ok; then
+      die "$VALUES expects an existing Secret egs-admin-details (key 'token') in $ADMIN_NAMESPACE, but it is missing. Create it again, or set egs.manageAdminSecret to true and egs.adminToken in the values file"
+    fi
     helm lint "$CHART" -f "$VALUES" >/dev/null 2>&1 || { helm lint "$CHART" -f "$VALUES" || true; die "helm lint failed"; }
     ok "chart lint"
     local out
@@ -240,6 +247,9 @@ verify() {
     'MYSQL_PWD="$MYSQL_PASSWORD" mysql -u"$MYSQL_USER" -N -e "select count(*) from information_schema.tables where table_schema=database()" "$MYSQL_DATABASE"' 2>/dev/null || echo "?")"
   if [ "$tables" = 15 ]; then ok "database: 15 tables"; else bad "database: $tables tables (expected 15)"; fi
 
+  if admin_secret_ok; then ok "EGS admin Secret egs-admin-details present in $ADMIN_NAMESPACE"
+  else bad "Secret egs-admin-details (key 'token') is missing in $ADMIN_NAMESPACE: sign-ups cannot create EGS workspaces"; fi
+
   local admitted
   admitted="$(oc get route -n "$NAMESPACE" -o json | jq -r '[.items[] | select(.status.ingress[0].conditions[0].status=="True")] | length')"
   if [ "$admitted" = 2 ]; then ok "routes: 2 admitted on $APP_HOST"; else bad "routes: $admitted of 2 admitted"; fi
@@ -271,8 +281,9 @@ verify() {
 }
 
 # ---------------------------------------------------------------- uninstall
-# Removes Smart Scaler only: its Helm release, the UI's anyuid grant and, with --delete-data, its two
-# namespaces. It never touches EGS and never runs openshift-scc-grants.sh revoke.
+# Removes Smart Scaler only: its Helm release, the UI's anyuid grant and, with --delete-data, its own
+# namespace. $ADMIN_NAMESPACE is never deleted: a Secret egs-admin-details that was there before the
+# install is not ours, and a reinstall with the kept values file needs it. It never touches EGS and never runs openshift-scc-grants.sh revoke.
 uninstall() {
   local t
   for t in oc helm; do command -v "$t" >/dev/null || die "'$t' is not installed on this workstation"; done
@@ -283,8 +294,9 @@ uninstall() {
   echo "${B}Uninstall Smart Scaler${N} from $(oc whoami --show-server)"
   echo "  Removes:  Helm release '$RELEASE' in $NAMESPACE, and the anyuid grant of the UI ServiceAccount"
   if [ "$DELETE_DATA" = true ]; then
-    echo "  ${R}Deletes:${N}  namespaces $NAMESPACE and $ADMIN_NAMESPACE, with the database volume:"
+    echo "  ${R}Deletes:${N}  namespace $NAMESPACE, with the database volume:"
     echo "            every Smart Scaler user and organization is lost"
+    echo "  Keeps:    namespace $ADMIN_NAMESPACE"
   else
     echo "  Keeps:    the database volume (all users and organizations) and both namespaces"
   fi
@@ -309,8 +321,8 @@ uninstall() {
   ok "anyuid grant of the UI ServiceAccount removed"
 
   if [ "$DELETE_DATA" = true ]; then
-    oc delete namespace "$NAMESPACE" "$ADMIN_NAMESPACE" --ignore-not-found --timeout=10m >/dev/null || die "could not delete the namespaces"
-    ok "namespaces $NAMESPACE and $ADMIN_NAMESPACE deleted, with the database volume"
+    oc delete namespace "$NAMESPACE" --ignore-not-found --timeout=10m >/dev/null || die "could not delete namespace $NAMESPACE"
+    ok "namespace $NAMESPACE deleted, with the database volume"
     echo
     echo "${G}${B}Smart Scaler and its data are removed.${N}"
     echo "  The values file is kept. Delete it if you don't plan to reinstall: $VALUES"

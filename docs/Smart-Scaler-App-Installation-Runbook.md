@@ -52,7 +52,7 @@ The installer runs six stages and stops at the first problem, with a message tha
 | 3. Values file | Generates the passwords and writes all settings to one file |
 | 4. Validate | Checks the chart, then does a dry run against the cluster |
 | 5. Install | Installs the Helm release `smart-scaler` and waits for the three pods |
-| 6. Verify | Checks the pods, the database, the Routes and the HTTPS addresses |
+| 6. Verify | Checks the pods, the database, the EGS admin Secret, the Routes and the HTTPS addresses |
 
 **Expected result:** every line shows `OK`, and the run ends like this:
 
@@ -62,6 +62,7 @@ The installer runs six stages and stops at the first problem, with a message tha
   OK    mysql pod Running (SCC restricted-v2, restarts 0)
   OK    ui pod Running (SCC anyuid, restarts 0)
   OK    database: 15 tables
+  OK    EGS admin Secret egs-admin-details present in smart-scaler-controller
   OK    routes: 2 admitted on smart-scaler.apps.<cluster-domain>
   OK    https://smart-scaler.apps.<cluster-domain>/api/v1/health-check -> 200
   OK    https://smart-scaler.apps.<cluster-domain>/ -> 200
@@ -135,7 +136,7 @@ The script lists what it will remove and what it keeps, then asks you to type `y
 | Command | Removes | Keeps |
 |---|---|---|
 | `--uninstall` | The Smart Scaler pods, Services and Routes, and the UI's `anyuid` grant | The database volume with every user and organization, both namespaces, the values file |
-| `--uninstall --delete-data` | The same, plus both namespaces and the database volume: every user and organization is lost | The values file |
+| `--uninstall --delete-data` | The same, plus the `smart-scaler-backend` namespace and the database volume: every user and organization is lost | The `smart-scaler-controller` namespace, the values file |
 
 After a plain `--uninstall`, run the installer again to get Smart Scaler back with the same users. It reuses the values file in `~/smart-scaler-run`.
 
@@ -157,6 +158,7 @@ Neither command touches EGS: the EGS releases and their grants stay as they are.
 | `cannot read the EGS admin token` | Check that the EGS project is `avesha`. If not, add `--project <name>` |
 | `release 'smart-scaler' is installed but … is missing` | Restore the values file from your backup to `~/smart-scaler-run/` |
 | `a MySQL volume from an earlier install exists` | Restore the values file. Or run the script with `--uninstall --delete-data`, which deletes all Smart Scaler data |
+| `expects an existing Secret egs-admin-details` or `Secret egs-admin-details … is missing` | The Secret that holds the EGS admin token is gone from namespace `smart-scaler-controller`. Create it again with the key `token`, or set `egs.manageAdminSecret: true` and `egs.adminToken` in the values file. Then run the installer again, or the `helm upgrade` from section 3 if Smart Scaler is already installed |
 | `MySQL did not become ready` | Run `oc get pod,pvc -n smart-scaler-backend`. A volume in `Pending` means a storage problem. `ImagePullBackOff` means the nodes can't reach `harbor.saas1.smart-scaler.io` on port 443 |
 | `the backend did not become ready` | Run `oc logs deploy/smart-scaler-backend -n smart-scaler-backend -c db-migration`. `Access denied` means the values file doesn't match the existing database volume |
 | `https://… -> 000` or `503` in stage 6 | The hostname doesn't resolve from your workstation, or the UI is still starting. Check DNS and VPN, then run with `--verify-only` |
@@ -188,14 +190,14 @@ The backend log shows errors about Redis, sending email, the billing service, no
 | `--domain-exclusion <list>` | Email domains that may have several organizations. Comma-separated, no spaces | `avesha.io` |
 | `--verify-only` | Only run the checks on an existing install | |
 | `--uninstall` | Remove Smart Scaler and keep its data | |
-| `--delete-data` | With `--uninstall`: also delete both namespaces and the database volume | |
+| `--delete-data` | With `--uninstall`: also delete the `smart-scaler-backend` namespace and the database volume | |
 | `--yes` | With `--uninstall`: don't ask for confirmation | |
 
 #### What gets installed
 
 | Component | Details |
 |---|---|
-| Backend | Deployment `smart-scaler-backend` in namespace `smart-scaler-backend`. Creates its 15 database tables when it starts |
+| Backend | Deployment `smart-scaler-backend` in namespace `smart-scaler-backend`. Its `db-migration` init container creates the 15 database tables before the backend starts |
 | UI | Deployment `smart-scaler-ui` in the same namespace. Runs as root, with the `anyuid` grant for its own ServiceAccount only |
 | MySQL | StatefulSet `smart-scaler-mysql` (MySQL 8.4) with an 8Gi volume, `data-smart-scaler-mysql-0` |
 | Routes | `https://<host>/` to the UI and `https://<host>/api` to the backend, on one hostname |
