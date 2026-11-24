@@ -253,8 +253,10 @@ kubeslice:
     # Component registry override; other images use global.imageRegistry.
     imageRegistry: harbor.saas1.smart-scaler.io/avesha/aveshadev
     image: kubeslice-api-gw-ent-egs
-    tag: 1.19.0-RELEASE-37de6fa8
+    tag: 1.19.0-RELEASE-5dde9dee
     pullPolicy: IfNotPresent
+    # true: GPU availability fails without the gpu-pricing-config ConfigMap and drops unpriced options.
+    gpuPricingRequired: false
     workloadEndpointDatabase:
       enabled: true
       # Same credential database as egs.inferenceAuthServer in the controller chart.
@@ -315,8 +317,10 @@ kubeslice:
 
   egsCoreApis:
     enabled: true
+    # Component registry override; other images use global.imageRegistry.
+    imageRegistry: harbor.saas1.smart-scaler.io/avesha/aveshadev
     image: egs-core-apis
-    tag: 1.15.0
+    tag: 1.16.0-RELEASE-f1111116
     pullPolicy: IfNotPresent
     # Hugging Face token for inference model downloads. Do not commit; pass with --set at install time.
     inferenceModelToken: ""
