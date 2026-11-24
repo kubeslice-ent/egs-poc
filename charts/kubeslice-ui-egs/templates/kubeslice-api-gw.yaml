@@ -172,6 +172,8 @@ spec:
               value: {{ .Values.egs.QueueManagerAddress }}
             - name: CORE_APIS_ENDPOINT
               value: {{ .Values.egs.CoreApisUrl }}
+            - name: GPU_PRICING_REQUIRED
+              value: {{ .Values.kubeslice.apigw.gpuPricingRequired | default false | quote }}
             - name: CONTROLLER_PROMETHEUS_TLS_ENABLED
               value: {{ .Values.egs.ControllerPrometheusTlsEnabled | quote   }}
           {{- if eq .Values.egs.ControllerPrometheusTlsEnabled "true" }}
