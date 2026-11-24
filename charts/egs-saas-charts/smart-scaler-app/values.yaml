@@ -83,7 +83,7 @@ backend:
 ui:
   image:
     repository: harbor.saas1.smart-scaler.io/avesha/aveshadev/smart-scaler-ui
-    tag: v3.0.1-RELEASE-c9120009
+    tag: 3.5.0-SNAPSHOT-0cda1d81
     pullPolicy: IfNotPresent
   replicas: 1
 
